@@ -1,0 +1,23 @@
+plugins {
+    id 'java'
+}
+
+group 'de.yannismate'
+version '1.0-DEV'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+
+    implementation 'com.google.inject:guice:5.0.1'
+    implementation 'com.discord4j:discord4j-core:3.1.5'
+
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.2'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.7.2'
+}
+
+test {
+    useJUnitPlatform()
+}
