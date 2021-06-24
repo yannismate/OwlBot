@@ -4,23 +4,28 @@ import com.google.inject.Singleton;
 import de.yannismate.owlbot.modules.LoggingModule;
 import de.yannismate.owlbot.modules.Module;
 import java.util.Collections;
-import java.util.HashSet;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 
 @Singleton
 public class ModuleProvider {
 
-  private final Set<Module> modules = new HashSet<>();
+  private final Map<Class<? extends Module>, Module> modules = new HashMap<>();
   private final Set<Class<? extends Module>> availableModules = Set.of(
       LoggingModule.class
   );
 
   public void addModule(Module module) {
-    this.modules.add(module);
+    this.modules.put(module.getClass(), module);
   }
 
-  public Set<Module> getModules() {
-    return Collections.unmodifiableSet(modules);
+  public Map<Class<? extends Module>, Module> getModules() {
+    return Collections.unmodifiableMap(this.modules);
+  }
+
+  public Module getModuleByClass(Class<? extends Module> clazz) {
+    return this.modules.get(clazz);
   }
 
   public Set<Class<? extends Module>> getAvailableModules() {
