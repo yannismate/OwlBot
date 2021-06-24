@@ -4,16 +4,11 @@ import com.google.inject.Singleton;
 import discord4j.common.util.Snowflake;
 
 @Singleton
-public class LoggingModule implements Module {
+public class LoggingModule extends Module {
 
-  @Override
-  public String getName() {
-    return "Logging";
-  }
-
-  @Override
-  public String getDescription() {
-    return "Allows logging of joining and leaving users, role changes, kicks, bans and command usage.";
+  public LoggingModule() {
+    this.name = "Logging";
+    this.description = "Allows logging of joining and leaving users, role changes, kicks, bans and command usage.";
   }
 
   @Override
@@ -25,4 +20,6 @@ public class LoggingModule implements Module {
   public void disable(Snowflake guildId) {
 
   }
+
+
 }

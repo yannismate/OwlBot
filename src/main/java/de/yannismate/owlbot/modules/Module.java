@@ -2,12 +2,19 @@ package de.yannismate.owlbot.modules;
 
 import discord4j.common.util.Snowflake;
 
-public interface Module {
+public abstract class Module {
 
-  String getName();
-  String getDescription();
+  protected String name;
+  protected String description;
 
-  void enable(Snowflake guildId);
-  void disable(Snowflake guildId);
+  abstract public void enable(Snowflake guildId);
+  abstract public void disable(Snowflake guildId);
 
+  public String getName() {
+    return name;
+  }
+
+  public String getDescription() {
+    return description;
+  }
 }
