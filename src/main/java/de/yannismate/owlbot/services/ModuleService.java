@@ -1,4 +1,4 @@
-package de.yannismate.owlbot.providers;
+package de.yannismate.owlbot.services;
 
 import com.google.inject.Singleton;
 import de.yannismate.owlbot.modules.LoggingModule;
@@ -9,7 +9,7 @@ import java.util.Map;
 import java.util.Set;
 
 @Singleton
-public class ModuleProvider {
+public class ModuleService {
 
   private final Map<Class<? extends Module>, Module> modules = new HashMap<>();
   private final Set<Class<? extends Module>> availableModules = Set.of(
