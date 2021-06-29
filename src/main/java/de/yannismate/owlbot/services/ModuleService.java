@@ -19,8 +19,6 @@ import org.slf4j.LoggerFactory;
 @Singleton
 public class ModuleService {
 
-  private DiscordService discordService;
-
   private final Logger logger = LoggerFactory.getLogger(ModuleService.class);
   private final Map<Class<? extends Module>, Module> modules = new HashMap<>();
   private final Set<Class<? extends Module>> availableModules = Set.of(
@@ -31,7 +29,6 @@ public class ModuleService {
 
   @Inject
   public ModuleService(DiscordService discordService) {
-    this.discordService = discordService;
     discordService.getGateway().on(MessageCreateEvent.class).subscribe(event -> {
       //TODO: Get prefix for server
       String prefix = "!";
@@ -80,9 +77,9 @@ public class ModuleService {
   static class ModuleCommandData {
     private final Method method;
     private final String requiredPermission;
-    private final Class cmdClass;
+    private final Class<? extends Module> cmdClass;
 
-    public ModuleCommandData(Method method, String requiredPermission, Class cmdClass) {
+    public ModuleCommandData(Method method, String requiredPermission, Class<? extends Module> cmdClass) {
       this.method = method;
       this.requiredPermission = requiredPermission;
       this.cmdClass = cmdClass;
@@ -96,7 +93,7 @@ public class ModuleService {
       return requiredPermission;
     }
 
-    public Class getCmdClass() {
+    public Class<? extends Module> getCmdClass() {
       return cmdClass;
     }
   }
