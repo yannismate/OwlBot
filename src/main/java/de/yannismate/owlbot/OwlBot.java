@@ -12,6 +12,8 @@ import org.slf4j.LoggerFactory;
 
 public class OwlBot {
 
+  public static String VERSION = "1.0-DEV";
+
   public static void main(String[] args) {
     Injector injector = Guice.createInjector(new AbstractModule() {
       @Override
