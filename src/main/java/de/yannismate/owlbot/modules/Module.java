@@ -19,4 +19,12 @@ public abstract class Module {
   public String getDescription() {
     return description;
   }
+
+  public boolean isAlwaysActive() {
+    return alwaysActive;
+  }
+
+  public boolean isBeta() {
+    return beta;
+  }
 }

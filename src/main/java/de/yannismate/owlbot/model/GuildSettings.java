@@ -19,29 +19,36 @@ public class GuildSettings {
     s.setPrefix("!");
     Permissions p = new Permissions();
     p.getUserPermissions().put(ownerId, new HashSet<>(Set.of("*")));
-    return new GuildSettings(guildId, s, p);
+    return new GuildSettings(guildId, new HashSet<>(), s, p);
   }
 
   public static GuildSettings fromDocument(Document doc) {
     Snowflake id = Snowflake.of(doc.getLong("guild_id"));
+    Set<String> em = new HashSet<>(Arrays.asList(((String[])doc.get("enabled_modules"))));
     Settings settings = Settings.fromDocument((Document) doc.get("settings"));
     Permissions permissions = Permissions.fromDocument((Document) doc.get("permissions"));
-    return new GuildSettings(id, settings, permissions);
+    return new GuildSettings(id, em, settings, permissions);
   }
 
   private final Snowflake guildId;
+  private final Set<String> enabledModules;
   private final Settings settings;
   private final Permissions permissions;
 
-  private GuildSettings(Snowflake guildId, Settings settings,
-      Permissions permissions) {
+  private GuildSettings(Snowflake guildId, Set<String> enabledModules,
+      Settings settings, Permissions permissions) {
     this.guildId = guildId;
+    this.enabledModules = enabledModules;
     this.settings = settings;
     this.permissions = permissions;
   }
 
   public Snowflake getGuildId() {
     return guildId;
+  }
+
+  public Set<String> getEnabledModules() {
+    return enabledModules;
   }
 
   public Settings getSettings() {

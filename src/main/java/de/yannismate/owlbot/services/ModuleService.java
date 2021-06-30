@@ -39,15 +39,20 @@ public class ModuleService {
           String command = event.getMessage().getContent().substring(1).split(" ")[0];
           if(registeredCommands.containsKey(command)) {
             ModuleCommandData cmd = registeredCommands.get(command);
+            Module mod = this.getModuleByClass(cmd.getCmdClass());
+            if(!mod.isAlwaysActive() && (guildSettings.isEmpty() ||
+                !guildSettings.get().getEnabledModules().contains(cmd.getCmdClass().getSimpleName()))) {
+              return;
+            }
             if(cmd.getRequiredPermission().length() != 0) {
-              if(!guildSettings.isPresent() ||
+              if(guildSettings.isEmpty() ||
                   !guildSettings.get().getPermissions().hasPermission(event.getMember().get().getId(), event.getMember().get().getRoleIds(), cmd.getRequiredPermission())) {
                 event.getMessage().getChannel().flatMap(c -> c.createMessage("<@" + event.getMember().get().getId().asString() + "> Missing required permissions.")).subscribe();
                 return;
               }
             }
             try {
-              cmd.getMethod().invoke(this.getModuleByClass(cmd.getCmdClass()), event);
+              cmd.getMethod().invoke(mod, event);
             } catch (IllegalAccessException | InvocationTargetException e) {
               logger.atError().addArgument(command).addArgument(e).log("Could not dispatch annotated command \"{}\"! {}");
               e.printStackTrace();
