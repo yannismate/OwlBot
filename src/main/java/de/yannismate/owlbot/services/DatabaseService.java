@@ -10,6 +10,7 @@ import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoDatabase;
 import de.yannismate.owlbot.model.GuildSettings;
 import discord4j.common.util.Snowflake;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
@@ -45,8 +46,8 @@ public class DatabaseService {
         if(result == null) return null;
         return GuildSettings.fromDocument(result);
       });
-  public Future<GuildSettings> getGuildSettings(Snowflake guildId) {
-    return guildSettingsCache.get(guildId);
+  public Future<Optional<GuildSettings>> getGuildSettings(Snowflake guildId) {
+    return guildSettingsCache.get(guildId).thenApply(Optional::ofNullable);
   }
 
 
