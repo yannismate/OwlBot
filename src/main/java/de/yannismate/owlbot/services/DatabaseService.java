@@ -8,6 +8,7 @@ import com.google.inject.Singleton;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoDatabase;
+import de.yannismate.owlbot.model.GuildSettings;
 import discord4j.common.util.Snowflake;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -30,26 +31,21 @@ public class DatabaseService {
 
   public Future<Void> addGuild(Snowflake guildId) {
     return CompletableFuture.runAsync(() -> {
-      Document doc = new Document();
-      doc.append("guild_id", guildId.asLong());
-
-      Document settings = new Document();
-      settings.append("prefix", "!");
-      doc.append("settings", settings);
-
-      db.getCollection("guild_settings").insertOne(doc);
+      db.getCollection("guild_settings").insertOne(GuildSettings.newDefault(guildId).toDocument());
     }, executor);
   }
 
-  private final AsyncLoadingCache<Snowflake, Document> guildSettingsCache = Caffeine.newBuilder()
+  private final AsyncLoadingCache<Snowflake, GuildSettings> guildSettingsCache = Caffeine.newBuilder()
       .expireAfterAccess(10, TimeUnit.MINUTES)
       .expireAfterWrite(1, TimeUnit.HOURS)
       .executor(this.executor)
       .buildAsync(guildId -> {
         Document filter = new Document("guild_id", guildId.asLong());
-        return db.getCollection("guild_settings").find(filter).first();
+        Document result = db.getCollection("guild_settings").find(filter).first();
+        if(result == null) return null;
+        return GuildSettings.fromDocument(result);
       });
-  public Future<Document> getGuildSettings(Snowflake guildId) {
+  public Future<GuildSettings> getGuildSettings(Snowflake guildId) {
     return guildSettingsCache.get(guildId);
   }
 
