@@ -17,11 +17,14 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import org.bson.Document;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Singleton
 public class DatabaseService {
 
   private MongoDatabase db;
+  private final Logger logger = LoggerFactory.getLogger(DatabaseService.class);
   private final Executor executor = Executors.newFixedThreadPool(4);
 
   @Inject
@@ -31,9 +34,9 @@ public class DatabaseService {
   }
 
   public Future<Void> addGuild(Snowflake guildId, Snowflake ownerId) {
-    return CompletableFuture.runAsync(() -> {
-      db.getCollection("guild_settings").insertOne(GuildSettings.newDefault(guildId, ownerId).toDocument());
-    }, executor);
+    return CompletableFuture.runAsync(() ->
+      db.getCollection("guild_settings").insertOne(GuildSettings.newDefault(guildId, ownerId).toDocument())
+    , executor);
   }
 
   private final AsyncLoadingCache<Snowflake, GuildSettings> guildSettingsCache = Caffeine.newBuilder()

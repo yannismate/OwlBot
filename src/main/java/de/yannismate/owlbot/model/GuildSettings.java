@@ -6,10 +6,12 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.bson.BsonArray;
 import org.bson.Document;
 
 public class GuildSettings {
@@ -24,7 +26,7 @@ public class GuildSettings {
 
   public static GuildSettings fromDocument(Document doc) {
     Snowflake id = Snowflake.of(doc.getLong("guild_id"));
-    Set<String> em = new HashSet<>(Arrays.asList(((String[])doc.get("enabled_modules"))));
+    Set<String> em = new HashSet<>(doc.getList("enabled_modules", String.class));
     Settings settings = Settings.fromDocument((Document) doc.get("settings"));
     Permissions permissions = Permissions.fromDocument((Document) doc.get("permissions"));
     return new GuildSettings(id, em, settings, permissions);
@@ -64,6 +66,7 @@ public class GuildSettings {
     doc.append("guild_id", this.guildId.asLong());
     doc.append("settings", this.settings.toDocument());
     doc.append("permissions", this.permissions.toDocument());
+    doc.append("enabled_modules", Arrays.asList(this.enabledModules.toArray()));
     return doc;
   }
 
@@ -99,14 +102,14 @@ public class GuildSettings {
       Map<Snowflake, Set<String>> userPerms = new HashMap<>();
 
       if(document.containsKey("role_permissions")) {
-        for(Entry<String, String[]> e : ((Map<String, String[]>)document.get("role_permissions")).entrySet()) {
-          rolePerms.put(Snowflake.of(e.getKey()), new HashSet<>(Arrays.asList(e.getValue())));
+        for(Entry<String, List<String>> e : ((Map<String, List<String>>)document.get("role_permissions")).entrySet()) {
+          rolePerms.put(Snowflake.of(e.getKey()), new HashSet<>(e.getValue()));
         }
       }
 
       if(document.containsKey("user_permissions")) {
-        for(Entry<String, String[]> e : ((Map<String, String[]>)document.get("user_permissions")).entrySet()) {
-          userPerms.put(Snowflake.of(e.getKey()), new HashSet<>(Arrays.asList(e.getValue())));
+        for(Entry<String, List<String>> e : ((Map<String, List<String>>)document.get("user_permissions")).entrySet()) {
+          userPerms.put(Snowflake.of(e.getKey()), new HashSet<>(e.getValue()));
         }
       }
 
@@ -116,8 +119,8 @@ public class GuildSettings {
       return perm;
     }
 
-    private Map<Snowflake, Set<String>> rolePermissions;
-    private Map<Snowflake, Set<String>> userPermissions;
+    private Map<Snowflake, Set<String>> rolePermissions = new HashMap<>();
+    private Map<Snowflake, Set<String>> userPermissions = new HashMap<>();
 
     public Map<Snowflake, Set<String>> getRolePermissions() {
       return rolePermissions;
@@ -148,8 +151,8 @@ public class GuildSettings {
       Document doc = new Document();
       Document rolePerms = new Document();
       Document userPerms = new Document();
-      this.rolePermissions.forEach((s, p) -> rolePerms.append(s.asString(), p.toArray()));
-      this.userPermissions.forEach((s, p) -> userPerms.append(s.asString(), p.toArray()));
+      this.rolePermissions.forEach((s, p) -> rolePerms.append(s.asString(), Arrays.asList(p.toArray())));
+      this.userPermissions.forEach((s, p) -> userPerms.append(s.asString(), Arrays.asList(p.toArray())));
       doc.append("role_permissions", rolePerms);
       doc.append("user_permissions", userPerms);
       return doc;
