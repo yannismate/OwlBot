@@ -7,6 +7,7 @@ import de.yannismate.owlbot.modules.Module;
 import de.yannismate.owlbot.modules.ModuleCommand;
 import de.yannismate.owlbot.modules.ModuleManagerModule;
 import discord4j.core.event.domain.message.MessageCreateEvent;
+import discord4j.core.object.entity.channel.Channel;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Collections;
@@ -28,24 +29,32 @@ public class ModuleService {
   private final Map<String, ModuleCommandData> registeredCommands = new HashMap<>();
 
   @Inject
-  public ModuleService(DiscordService discordService) {
+  public ModuleService(DiscordService discordService, DatabaseService databaseService) {
     discordService.getGateway().on(MessageCreateEvent.class).subscribe(event -> {
-      //TODO: Get prefix for server
-      String prefix = "!";
-      String msg = event.getMessage().getContent();
-      if(msg.startsWith(prefix) && msg.length() > prefix.length()) {
-        String command = event.getMessage().getContent().substring(1).split(" ")[0];
-        if(registeredCommands.containsKey(command)) {
-          ModuleCommandData cmd = registeredCommands.get(command);
-          //TODO: Check permissions
-          try {
-            cmd.getMethod().invoke(this.getModuleByClass(cmd.getCmdClass()), event);
-          } catch (IllegalAccessException | InvocationTargetException e) {
-            logger.atError().addArgument(command).addArgument(e).log("Could not dispatch annotated command \"{}\"! {}");
-            e.printStackTrace();
+      if(event.getGuildId().isEmpty() || event.getMember().isEmpty()) return;
+      databaseService.getGuildSettings(event.getGuildId().get()).thenAccept(guildSettings -> {
+        String prefix = guildSettings.isPresent() ? guildSettings.get().getSettings().getPrefix() : "!";
+        String msg = event.getMessage().getContent();
+        if(msg.startsWith(prefix) && msg.length() > prefix.length()) {
+          String command = event.getMessage().getContent().substring(1).split(" ")[0];
+          if(registeredCommands.containsKey(command)) {
+            ModuleCommandData cmd = registeredCommands.get(command);
+            if(cmd.getRequiredPermission().length() != 0) {
+              if(!guildSettings.isPresent() ||
+                  !guildSettings.get().getPermissions().hasPermission(event.getMember().get().getId(), event.getMember().get().getRoleIds(), cmd.getRequiredPermission())) {
+                event.getMessage().getChannel().flatMap(c -> c.createMessage("<@" + event.getMember().get().getId().asString() + "> Missing required permissions.")).subscribe();
+                return;
+              }
+            }
+            try {
+              cmd.getMethod().invoke(this.getModuleByClass(cmd.getCmdClass()), event);
+            } catch (IllegalAccessException | InvocationTargetException e) {
+              logger.atError().addArgument(command).addArgument(e).log("Could not dispatch annotated command \"{}\"! {}");
+              e.printStackTrace();
+            }
           }
         }
-      }
+      });
     });
   }
 

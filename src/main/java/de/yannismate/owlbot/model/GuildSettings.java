@@ -14,10 +14,12 @@ import org.bson.Document;
 
 public class GuildSettings {
 
-  public static GuildSettings newDefault(Snowflake guildId) {
+  public static GuildSettings newDefault(Snowflake guildId, Snowflake ownerId) {
     Settings s = new Settings();
     s.setPrefix("!");
-    return new GuildSettings(guildId, s, new Permissions());
+    Permissions p = new Permissions();
+    p.getUserPermissions().put(ownerId, new HashSet<>(Set.of("*")));
+    return new GuildSettings(guildId, s, p);
   }
 
   public static GuildSettings fromDocument(Document doc) {

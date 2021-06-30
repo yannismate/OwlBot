@@ -30,9 +30,9 @@ public class DatabaseService {
     this.db = client.getDatabase("owlbot");
   }
 
-  public Future<Void> addGuild(Snowflake guildId) {
+  public Future<Void> addGuild(Snowflake guildId, Snowflake ownerId) {
     return CompletableFuture.runAsync(() -> {
-      db.getCollection("guild_settings").insertOne(GuildSettings.newDefault(guildId).toDocument());
+      db.getCollection("guild_settings").insertOne(GuildSettings.newDefault(guildId, ownerId).toDocument());
     }, executor);
   }
 
@@ -46,7 +46,7 @@ public class DatabaseService {
         if(result == null) return null;
         return GuildSettings.fromDocument(result);
       });
-  public Future<Optional<GuildSettings>> getGuildSettings(Snowflake guildId) {
+  public CompletableFuture<Optional<GuildSettings>> getGuildSettings(Snowflake guildId) {
     return guildSettingsCache.get(guildId).thenApply(Optional::ofNullable);
   }
 
