@@ -2,19 +2,18 @@ package de.yannismate.owlbot.services;
 
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.model.UpdateOptions;
 import de.yannismate.owlbot.model.GuildSettings;
 import discord4j.common.util.Snowflake;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import org.bson.Document;
 import org.slf4j.Logger;
@@ -33,7 +32,7 @@ public class DatabaseService {
     this.db = client.getDatabase("owlbot");
   }
 
-  public Future<Void> addGuild(Snowflake guildId, Snowflake ownerId) {
+  public CompletableFuture<Void> addGuild(Snowflake guildId, Snowflake ownerId) {
     return CompletableFuture.runAsync(() ->
       db.getCollection("guild_settings").insertOne(GuildSettings.newDefault(guildId, ownerId).toDocument())
     , executor);
@@ -51,6 +50,13 @@ public class DatabaseService {
       });
   public CompletableFuture<Optional<GuildSettings>> getGuildSettings(Snowflake guildId) {
     return guildSettingsCache.get(guildId).thenApply(Optional::ofNullable);
+  }
+  public CompletableFuture<Void> updateGuildSettings(GuildSettings guildSettings) {
+    return CompletableFuture.runAsync(() -> {
+      guildSettingsCache.put(guildSettings.getGuildId(), CompletableFuture.completedFuture(guildSettings));
+      Document filter = new Document("guild_id", guildSettings.getGuildId().asLong());
+      db.getCollection("guild_settings").updateOne(filter, new Document("$set", guildSettings.toDocument()), new UpdateOptions().upsert(true));
+    }, executor);
   }
 
 

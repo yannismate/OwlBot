@@ -7,12 +7,12 @@ import de.yannismate.owlbot.modules.Module;
 import de.yannismate.owlbot.modules.ModuleCommand;
 import de.yannismate.owlbot.modules.ModuleManagerModule;
 import discord4j.core.event.domain.message.MessageCreateEvent;
-import discord4j.core.object.entity.channel.Channel;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -82,6 +82,10 @@ public class ModuleService {
 
   public Module getModuleByClass(Class<? extends Module> clazz) {
     return this.modules.get(clazz);
+  }
+
+  public Optional<Module> getModuleByName(String name) {
+    return this.modules.values().stream().filter(m -> m.getName().equalsIgnoreCase(name)).findFirst();
   }
 
   public Set<Class<? extends Module>> getAvailableModules() {
