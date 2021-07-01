@@ -6,6 +6,7 @@ import de.yannismate.owlbot.modules.LoggingModule;
 import de.yannismate.owlbot.modules.Module;
 import de.yannismate.owlbot.modules.ModuleCommand;
 import de.yannismate.owlbot.modules.ModuleManagerModule;
+import de.yannismate.owlbot.util.MessageUtils;
 import discord4j.core.event.domain.message.MessageCreateEvent;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -47,7 +48,7 @@ public class ModuleService {
             if(cmd.getRequiredPermission().length() != 0) {
               if(guildSettings.isEmpty() ||
                   !guildSettings.get().getPermissions().hasPermission(event.getMember().get().getId(), event.getMember().get().getRoleIds(), cmd.getRequiredPermission())) {
-                event.getMessage().getChannel().flatMap(c -> c.createMessage("<@" + event.getMember().get().getId().asString() + "> Missing required permissions.")).subscribe();
+                MessageUtils.createMessageInChannel(event.getMessage().getChannel(), "<@" + event.getMember().get().getId().asString() + "> Missing required permissions.");
                 return;
               }
             }

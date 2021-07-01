@@ -4,6 +4,7 @@ import com.google.inject.Inject;
 import de.yannismate.owlbot.OwlBot;
 import de.yannismate.owlbot.services.DatabaseService;
 import de.yannismate.owlbot.services.ModuleService;
+import de.yannismate.owlbot.util.MessageUtils;
 import discord4j.common.util.Snowflake;
 import discord4j.core.event.domain.message.MessageCreateEvent;
 import discord4j.core.spec.EmbedCreateSpec;
@@ -34,6 +35,7 @@ public class ModuleManagerModule extends Module {
 
   @ModuleCommand(command = "modules", requiredPermission = "admin.managemodules")
   public void onModulesCommand(MessageCreateEvent event) {
+    Snowflake userId = event.getMember().get().getId();
     String[] args = event.getMessage().getContent().split(" ");
     args = Arrays.copyOfRange(args, 1, args.length);
 
@@ -69,52 +71,54 @@ public class ModuleManagerModule extends Module {
 
       if(args[0].toLowerCase().equals("info")) {
         if(findModule.isEmpty()) {
-          event.getMessage().getChannel().flatMap(c -> c.createMessage("<@" + event.getMember().get().getId().asString() + "> Could not find module " + findModule)).subscribe();
+          MessageUtils.createMessageInChannel(event.getMessage().getChannel(), "<@" + userId.asString() + "> Could not find module " + moduleName);
           return;
         }
+        //TODO
       } else if(args[0].toLowerCase().equals("enable")) {
         if(findModule.isEmpty()) {
-          event.getMessage().getChannel().flatMap(c -> c.createMessage("<@" + event.getMember().get().getId().asString() + "> Could not find module " + findModule)).subscribe();
+          MessageUtils.createMessageInChannel(event.getMessage().getChannel(), "<@" + userId.asString() + "> Could not find module " + moduleName);
+
           return;
         }
         db.getGuildSettings(event.getGuildId().get()).thenAccept(guildSettings -> {
           if(guildSettings.isEmpty()) return;
           if(guildSettings.get().getEnabledModules().contains(findModule.get().getClass().getSimpleName())) {
-            event.getMessage().getChannel().flatMap(c -> c.createMessage("<@" + event.getMember().get().getId().asString() + "> " + findModule.get().getName() + " is already enabled!")).subscribe();
+            MessageUtils.createMessageInChannel(event.getMessage().getChannel(), "<@" + userId.asString() + "> " + findModule.get().getName() + " is already enabled!");
             return;
           }
           guildSettings.get().getEnabledModules().add(findModule.get().getClass().getSimpleName());
           findModule.get().enable(event.getGuildId().get());
           db.updateGuildSettings(guildSettings.get()).thenAccept((v) -> {
-            event.getMessage().getChannel().flatMap(c -> c.createMessage("<@" + event.getMember().get().getId().asString() + "> " + findModule.get().getName() + " enabled.")).subscribe();
+            MessageUtils.createMessageInChannel(event.getMessage().getChannel(), "<@" + userId.asString() + "> " + findModule.get().getName() + " enabled.");
           });
         });
       } else if(args[0].toLowerCase().equals("disable")) {
         if(findModule.isEmpty()) {
-          event.getMessage().getChannel().flatMap(c -> c.createMessage("<@" + event.getMember().get().getId().asString() + "> Could not find module " + findModule)).subscribe();
+          MessageUtils.createMessageInChannel(event.getMessage().getChannel(), "<@" + userId.asString() + "> Could not find module " + moduleName);
           return;
         }
         if(findModule.get().isAlwaysActive()) {
-          event.getMessage().getChannel().flatMap(c -> c.createMessage("<@" + event.getMember().get().getId().asString() + "> " + findModule.get().getName() + " cannot be deactivated.")).subscribe();
+          MessageUtils.createMessageInChannel(event.getMessage().getChannel(), "<@" + userId.asString() + "> " + findModule.get().getName() + " cannot be disabled.");
           return;
         }
         db.getGuildSettings(event.getGuildId().get()).thenAccept(guildSettings -> {
           if(guildSettings.isEmpty()) return;
           if(!guildSettings.get().getEnabledModules().contains(findModule.get().getClass().getSimpleName())) {
-            event.getMessage().getChannel().flatMap(c -> c.createMessage("<@" + event.getMember().get().getId().asString() + "> " + findModule.get().getName() + " is already disabled!")).subscribe();
+            MessageUtils.createMessageInChannel(event.getMessage().getChannel(), "<@" + userId.asString() + "> " + findModule.get().getName() + " is already disabled!");
             return;
           }
           guildSettings.get().getEnabledModules().remove(findModule.get().getClass().getSimpleName());
           findModule.get().disable(event.getGuildId().get());
           db.updateGuildSettings(guildSettings.get()).thenAccept((v) -> {
-            event.getMessage().getChannel().flatMap(c -> c.createMessage("<@" + event.getMember().get().getId().asString() + "> " + findModule.get().getName() + " disabled.")).subscribe();
+            MessageUtils.createMessageInChannel(event.getMessage().getChannel(), "<@" + userId.asString() + "> " + findModule.get().getName() + " disabled.");
           });
         });
       } else {
-        event.getMessage().getChannel().flatMap(messageChannel -> messageChannel.createMessage("<@" + event.getMember().get().getId().asString() + "> Unknown subcommand!")).subscribe();
+        MessageUtils.createMessageInChannel(event.getMessage().getChannel(), "<@" + userId.asString() + "> Unknown subcommand!");
       }
     } else {
-      event.getMessage().getChannel().flatMap(messageChannel -> messageChannel.createMessage("<@" + event.getMember().get().getId().asString() + "> Invalid amount of arguments!")).subscribe();
+      MessageUtils.createMessageInChannel(event.getMessage().getChannel(), "<@" + userId.asString() + "> Invalid amount of arguments!");
     }
 
   }
