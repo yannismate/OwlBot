@@ -69,13 +69,13 @@ public class ModuleManagerModule extends Module {
       String moduleName = args[1];
       Optional<Module> findModule = moduleService.getModuleByName(moduleName);
 
-      if(args[0].toLowerCase().equals("info")) {
+      if(args[0].equalsIgnoreCase("info")) {
         if(findModule.isEmpty()) {
           MessageUtils.createMessageInChannel(event.getMessage().getChannel(), "<@" + userId.asString() + "> Could not find module " + moduleName);
           return;
         }
         //TODO
-      } else if(args[0].toLowerCase().equals("enable")) {
+      } else if(args[0].equalsIgnoreCase("enable")) {
         if(findModule.isEmpty()) {
           MessageUtils.createMessageInChannel(event.getMessage().getChannel(), "<@" + userId.asString() + "> Could not find module " + moduleName);
 
@@ -93,7 +93,7 @@ public class ModuleManagerModule extends Module {
             MessageUtils.createMessageInChannel(event.getMessage().getChannel(), "<@" + userId.asString() + "> " + findModule.get().getName() + " enabled.");
           });
         });
-      } else if(args[0].toLowerCase().equals("disable")) {
+      } else if(args[0].equalsIgnoreCase("disable")) {
         if(findModule.isEmpty()) {
           MessageUtils.createMessageInChannel(event.getMessage().getChannel(), "<@" + userId.asString() + "> Could not find module " + moduleName);
           return;
