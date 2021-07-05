@@ -76,17 +76,20 @@ public class ModuleManagerModule extends Module {
         }
         //TODO
       } else if(args[0].equalsIgnoreCase("enable")) {
+        //Check if entered module exists
         if(findModule.isEmpty()) {
           MessageUtils.createMessageInChannel(event.getMessage().getChannel(), "<@" + userId.asString() + "> Could not find module " + moduleName);
-
           return;
         }
         db.getGuildSettings(event.getGuildId().get()).thenAccept(guildSettings -> {
           if(guildSettings.isEmpty()) return;
+          //Check if module is deactivated
           if(guildSettings.get().getEnabledModules().contains(findModule.get().getClass().getSimpleName())) {
             MessageUtils.createMessageInChannel(event.getMessage().getChannel(), "<@" + userId.asString() + "> " + findModule.get().getName() + " is already enabled!");
             return;
           }
+
+          //Activate
           guildSettings.get().getEnabledModules().add(findModule.get().getClass().getSimpleName());
           findModule.get().enable(event.getGuildId().get());
           db.updateGuildSettings(guildSettings.get()).thenAccept((v) -> {
@@ -94,20 +97,26 @@ public class ModuleManagerModule extends Module {
           });
         });
       } else if(args[0].equalsIgnoreCase("disable")) {
+        //Check if entered module exists
         if(findModule.isEmpty()) {
           MessageUtils.createMessageInChannel(event.getMessage().getChannel(), "<@" + userId.asString() + "> Could not find module " + moduleName);
           return;
         }
+
+        //Check if module can be deactivated
         if(findModule.get().isAlwaysActive()) {
           MessageUtils.createMessageInChannel(event.getMessage().getChannel(), "<@" + userId.asString() + "> " + findModule.get().getName() + " cannot be disabled.");
           return;
         }
+
         db.getGuildSettings(event.getGuildId().get()).thenAccept(guildSettings -> {
           if(guildSettings.isEmpty()) return;
+          //Check if module is active
           if(!guildSettings.get().getEnabledModules().contains(findModule.get().getClass().getSimpleName())) {
             MessageUtils.createMessageInChannel(event.getMessage().getChannel(), "<@" + userId.asString() + "> " + findModule.get().getName() + " is already disabled!");
             return;
           }
+          //Deactivate
           guildSettings.get().getEnabledModules().remove(findModule.get().getClass().getSimpleName());
           findModule.get().disable(event.getGuildId().get());
           db.updateGuildSettings(guildSettings.get()).thenAccept((v) -> {

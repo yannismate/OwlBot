@@ -32,24 +32,31 @@ public class ModuleService {
   @Inject
   public ModuleService(DiscordService discordService, DatabaseService databaseService) {
     discordService.getGateway().on(MessageCreateEvent.class).subscribe(event -> {
+      //Check if message was sent on a guild
       if(event.getGuildId().isEmpty() || event.getMember().isEmpty()) return;
+
       databaseService.getGuildSettings(event.getGuildId().get()).thenAccept(guildSettings -> {
         String prefix = guildSettings.isPresent() ? guildSettings.get().getSettings().getPrefix() : "!";
         String msg = event.getMessage().getContent();
 
+        //Check if message length is long enough to be a command
         if(!msg.startsWith(prefix) || msg.length() <= prefix.length()) return;
 
         String command = event.getMessage().getContent().substring(1).split(" ")[0];
 
+        //Check if command exists
         if(!registeredCommands.containsKey(command)) return;
 
         ModuleCommandData cmd = registeredCommands.get(command);
         Module mod = this.getModuleByClass(cmd.getCmdClass());
 
+        //Check if command module is enabled on the guild
         if(!mod.isAlwaysActive() && (guildSettings.isEmpty() ||
             !guildSettings.get().getEnabledModules().contains(cmd.getCmdClass().getSimpleName()))) {
           return;
         }
+
+        //Check permissions
         if(cmd.getRequiredPermission().length() != 0) {
           if(guildSettings.isEmpty() ||
               !guildSettings.get().getPermissions().hasPermission(event.getMember().get().getId(), event.getMember().get().getRoleIds(), cmd.getRequiredPermission())) {
@@ -57,19 +64,23 @@ public class ModuleService {
             return;
           }
         }
+
+
         try {
           cmd.getMethod().invoke(mod, event);
         } catch (IllegalAccessException | InvocationTargetException e) {
           logger.atError().addArgument(command).addArgument(e).log("Could not dispatch annotated command \"{}\"! {}");
-          e.printStackTrace();
         }
       });
     });
+
   }
 
 
   public void addModule(Module module) {
     this.modules.put(module.getClass(), module);
+
+    //Register annotated commands
     for(Method m : module.getClass().getMethods()) {
       if(!m.isAnnotationPresent(ModuleCommand.class)) continue;
 
