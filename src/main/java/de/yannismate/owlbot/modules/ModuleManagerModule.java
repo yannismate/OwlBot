@@ -10,8 +10,10 @@ import discord4j.core.event.domain.message.MessageCreateEvent;
 import discord4j.core.spec.EmbedCreateSpec;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 public class ModuleManagerModule extends Module {
 
@@ -46,6 +48,7 @@ public class ModuleManagerModule extends Module {
 
         Consumer<EmbedCreateSpec> specConsumer = (spec -> {
           spec.setTitle("Modules");
+          spec.setColor(OwlBot.COLOR_NEUTRAL);
           spec.setDescription(prefix + "`modules info [module]` - Shows info about a module\n"
               + prefix + "`modules enable [module]` - Enable module\n"
               + prefix + "`modules disable [module]` - Disable module");
@@ -74,7 +77,39 @@ public class ModuleManagerModule extends Module {
           MessageUtils.createMessageInChannel(event.getMessage().getChannel(), "<@" + userId.asString() + "> Could not find module " + moduleName);
           return;
         }
-        //TODO
+
+        db.getGuildSettings(event.getGuildId().get()).thenAccept(guildSettings -> {
+
+          if(guildSettings.isEmpty()) return;
+
+          boolean isModuleEnabled = guildSettings.get().getEnabledModules().contains(findModule.get().getClass().getSimpleName()) || findModule.get().isAlwaysActive();
+
+          //Get module commands
+          var commands = moduleService.getCommandsByModuleClass(findModule.get().getClass());
+          List<String> sortedCommands = commands.keySet().stream()
+              .map(e -> guildSettings.get().getSettings().getPrefix() + e)
+              .sorted(String::compareToIgnoreCase).collect(Collectors.toList());
+
+          String commandsString = sortedCommands.size() > 0 ? String.join("\n", sortedCommands) : "-";
+
+          Consumer<EmbedCreateSpec> specConsumer = (spec -> {
+            spec.setTitle(findModule.get().getName());
+            spec.setColor(isModuleEnabled ? OwlBot.COLOR_POSITIVE : OwlBot.COLOR_NEGATIVE);
+            spec.setDescription(findModule.get().getDescription());
+            if(isModuleEnabled) {
+              spec.addField("Enabled", "✅" + (findModule.get().isAlwaysActive() ? "🔒" : ""), false);
+            } else {
+              spec.addField("Enabled", "❌", false);
+            }
+            spec.addField("Commands", commandsString, false);
+            spec.setFooter("OwlBot v" + OwlBot.VERSION, null);
+            spec.setTimestamp(Instant.now());
+          });
+
+          event.getMessage().getChannel().flatMap(messageChannel -> messageChannel.createEmbed(specConsumer)).subscribe();
+
+        });
+
       } else if(args[0].equalsIgnoreCase("enable")) {
         //Check if entered module exists
         if(findModule.isEmpty()) {

@@ -13,8 +13,10 @@ import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -101,6 +103,12 @@ public class ModuleService {
 
   public Optional<Module> getModuleByName(String name) {
     return this.modules.values().stream().filter(m -> m.getName().equalsIgnoreCase(name)).findFirst();
+  }
+
+  public Map<String, ModuleCommandData> getCommandsByModuleClass(Class<? extends Module> moduleClass) {
+    return this.registeredCommands.entrySet().stream()
+        .filter(e -> e.getValue().cmdClass == moduleClass)
+        .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
   }
 
   public Set<Class<? extends Module>> getAvailableModules() {
