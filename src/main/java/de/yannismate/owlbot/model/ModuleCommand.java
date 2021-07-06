@@ -1,4 +1,4 @@
-package de.yannismate.owlbot.modules;
+package de.yannismate.owlbot.model;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

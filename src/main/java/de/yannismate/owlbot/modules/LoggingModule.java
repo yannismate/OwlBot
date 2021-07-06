@@ -1,6 +1,7 @@
 package de.yannismate.owlbot.modules;
 
 import com.google.inject.Singleton;
+import de.yannismate.owlbot.model.Module;
 import discord4j.common.util.Snowflake;
 
 @Singleton

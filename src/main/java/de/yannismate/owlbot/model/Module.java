@@ -1,4 +1,4 @@
-package de.yannismate.owlbot.modules;
+package de.yannismate.owlbot.model;
 
 import discord4j.common.util.Snowflake;
 

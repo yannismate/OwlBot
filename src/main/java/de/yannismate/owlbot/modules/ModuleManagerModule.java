@@ -2,6 +2,8 @@ package de.yannismate.owlbot.modules;
 
 import com.google.inject.Inject;
 import de.yannismate.owlbot.OwlBot;
+import de.yannismate.owlbot.model.Module;
+import de.yannismate.owlbot.model.ModuleCommand;
 import de.yannismate.owlbot.services.DatabaseService;
 import de.yannismate.owlbot.services.ModuleService;
 import de.yannismate.owlbot.util.MessageUtils;
