@@ -9,6 +9,7 @@ import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.UpdateOptions;
 import de.yannismate.owlbot.model.GuildSettings;
+import de.yannismate.owlbot.model.ModuleSettings;
 import discord4j.common.util.Snowflake;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -59,5 +60,40 @@ public class DatabaseService {
     }, executor);
   }
 
+
+  public CompletableFuture<Void> addModuleSettings(ModuleSettings settings) {
+    return CompletableFuture.runAsync(() ->
+        db.getCollection("module_settings").insertOne(settings.toDocument())
+        , executor);
+  }
+  private final AsyncLoadingCache<String, ModuleSettings> moduleSettingsCache = Caffeine.newBuilder()
+      .expireAfterAccess(10, TimeUnit.MINUTES)
+      .expireAfterWrite(1, TimeUnit.HOURS)
+      .executor(this.executor)
+      .buildAsync(mixedKey -> {
+        String[] splitKey = mixedKey.split(":");
+        Document filter = new Document();
+        filter.append("guild_id", Long.valueOf(splitKey[0]));
+        filter.append("module_name", splitKey[1]);
+        Document result = db.getCollection("module_settings").find(filter).first();
+        if(result == null) return null;
+        return ModuleSettings.fromDocument(result);
+      });
+  public CompletableFuture<Optional<ModuleSettings>> getModuleSettings(Snowflake guildId, String moduleName) {
+    return moduleSettingsCache.get(guildId.asLong() + ":" + moduleName).thenApply(Optional::ofNullable);
+  }
+  public CompletableFuture<Void> updateModuleSettings(ModuleSettings moduleSettings) {
+    return CompletableFuture.runAsync(() -> {
+      moduleSettingsCache
+          .put(moduleSettings.getGuildId().asLong() + ":" + moduleSettings.getModuleName(),
+              CompletableFuture.completedFuture(moduleSettings));
+      Document filter = new Document();
+      filter.append("guild_id", moduleSettings.getGuildId().asLong());
+      filter.append("module_name", moduleSettings.getModuleName());
+      db.getCollection("guild_settings")
+          .updateOne(filter, new Document("$set", moduleSettings.toDocument()),
+              new UpdateOptions().upsert(true));
+    }, executor);
+  }
 
 }
