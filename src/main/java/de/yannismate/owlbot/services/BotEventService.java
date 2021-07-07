@@ -16,7 +16,7 @@ public class BotEventService {
     this.eventBus.post(event);
   }
 
-  public <T> void on(Class<? extends T> eventClass, Consumer<T> consumer) {
+  public <T extends BotEvent> void on(Class<T> eventClass, Consumer<T> consumer) {
     this.eventBus.register(new EventSub<T>(consumer));
   }
 

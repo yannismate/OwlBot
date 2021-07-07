@@ -1,8 +1,9 @@
 package de.yannismate.owlbot.model.events;
 
+import de.yannismate.owlbot.model.BotEvent;
 import discord4j.common.util.Snowflake;
 
-public class CommandExecutionEvent {
+public class CommandExecutionEvent implements BotEvent {
 
   private final Snowflake guildId;
   private final Snowflake channelId;
