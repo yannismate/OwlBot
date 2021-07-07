@@ -3,6 +3,7 @@ package de.yannismate.owlbot;
 import com.google.inject.AbstractModule;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
+import de.yannismate.owlbot.services.BotEventService;
 import de.yannismate.owlbot.services.BotSettingsService;
 import de.yannismate.owlbot.services.DatabaseService;
 import de.yannismate.owlbot.services.DiscordService;
@@ -25,6 +26,7 @@ public class OwlBot {
         bind(BotSettingsService.class).asEagerSingleton();
         bind(DiscordService.class).asEagerSingleton();
         bind(DatabaseService.class).asEagerSingleton();
+        bind(BotEventService.class).asEagerSingleton();
       }
     });
     OwlBot owlBot = new OwlBot(injector);
