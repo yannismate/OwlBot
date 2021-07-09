@@ -2,6 +2,8 @@ package de.yannismate.owlbot.services;
 
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
+import de.yannismate.owlbot.model.BotEvent;
+import de.yannismate.owlbot.model.events.CommandExecutionEvent;
 import de.yannismate.owlbot.modules.LoggingModule;
 import de.yannismate.owlbot.model.Module;
 import de.yannismate.owlbot.model.ModuleCommand;
@@ -10,6 +12,7 @@ import de.yannismate.owlbot.util.MessageUtils;
 import discord4j.core.event.domain.message.MessageCreateEvent;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -19,6 +22,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import reactor.core.publisher.Mono;
 
 @Singleton
 public class ModuleService {
@@ -32,7 +36,8 @@ public class ModuleService {
   private final Map<String, ModuleCommandData> registeredCommands = new HashMap<>();
 
   @Inject
-  public ModuleService(DiscordService discordService, DatabaseService databaseService) {
+  public ModuleService(DiscordService discordService, DatabaseService databaseService,
+      BotEventService eventService) {
     discordService.getGateway().on(MessageCreateEvent.class).subscribe(event -> {
       //Check if message was sent on a guild
       if(event.getGuildId().isEmpty() || event.getMember().isEmpty()) return;
@@ -69,7 +74,20 @@ public class ModuleService {
 
 
         try {
-          cmd.getMethod().invoke(mod, event);
+          Object result = cmd.getMethod().invoke(mod, event);
+          //Publish CommandExecutionEvent to Bot EventSub
+          if(result instanceof Mono) {
+            Mono<Void> r = (Mono<Void>) result;
+            r.subscribe(then -> {
+              String[] args = event.getMessage().getContent().split(" ");
+              args = Arrays.copyOfRange(args, 1, args.length);
+
+              CommandExecutionEvent commandExecutionEvent = new CommandExecutionEvent(
+                  event.getGuildId().get(), event.getMessage().getChannelId(),
+                  event.getMember().get().getId(), command, args);
+              eventService.publishEvent(commandExecutionEvent);
+            });
+          }
         } catch (IllegalAccessException | InvocationTargetException e) {
           logger.atError().addArgument(command).addArgument(e).log("Could not dispatch annotated command \"{}\"! {}");
         }
