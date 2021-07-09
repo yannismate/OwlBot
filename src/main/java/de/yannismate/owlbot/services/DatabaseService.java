@@ -8,8 +8,8 @@ import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.UpdateOptions;
-import de.yannismate.owlbot.model.GuildSettings;
-import de.yannismate.owlbot.model.ModuleSettings;
+import de.yannismate.owlbot.model.db.GuildSettings;
+import de.yannismate.owlbot.model.db.ModuleSettings;
 import discord4j.common.util.Snowflake;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -47,7 +47,7 @@ public class DatabaseService {
         Document filter = new Document("guild_id", guildId.asLong());
         Document result = db.getCollection("guild_settings").find(filter).first();
         if(result == null) return null;
-        return GuildSettings.fromDocument(result);
+        return new GuildSettings().read(result);
       });
   public CompletableFuture<Optional<GuildSettings>> getGuildSettings(Snowflake guildId) {
     return guildSettingsCache.get(guildId).thenApply(Optional::ofNullable);

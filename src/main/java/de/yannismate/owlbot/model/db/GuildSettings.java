@@ -1,6 +1,7 @@
-package de.yannismate.owlbot.model;
+package de.yannismate.owlbot.model.db;
 
 import com.google.re2j.Pattern;
+import de.yannismate.owlbot.model.DatabaseObject;
 import discord4j.common.util.Snowflake;
 import java.util.Arrays;
 import java.util.Collection;
@@ -11,10 +12,9 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.bson.BsonArray;
 import org.bson.Document;
 
-public class GuildSettings {
+public class GuildSettings implements DatabaseObject {
 
   public static GuildSettings newDefault(Snowflake guildId, Snowflake ownerId) {
     Settings s = new Settings();
@@ -24,18 +24,12 @@ public class GuildSettings {
     return new GuildSettings(guildId, new HashSet<>(), s, p);
   }
 
-  public static GuildSettings fromDocument(Document doc) {
-    Snowflake id = Snowflake.of(doc.getLong("guild_id"));
-    Set<String> em = new HashSet<>(doc.getList("enabled_modules", String.class));
-    Settings settings = Settings.fromDocument((Document) doc.get("settings"));
-    Permissions permissions = Permissions.fromDocument((Document) doc.get("permissions"));
-    return new GuildSettings(id, em, settings, permissions);
-  }
+  private Snowflake guildId;
+  private Set<String> enabledModules;
+  private Settings settings;
+  private Permissions permissions;
 
-  private final Snowflake guildId;
-  private final Set<String> enabledModules;
-  private final Settings settings;
-  private final Permissions permissions;
+  public GuildSettings() {}
 
   private GuildSettings(Snowflake guildId, Set<String> enabledModules,
       Settings settings, Permissions permissions) {
@@ -43,6 +37,15 @@ public class GuildSettings {
     this.enabledModules = enabledModules;
     this.settings = settings;
     this.permissions = permissions;
+  }
+
+  @Override
+  public GuildSettings read(Document doc) {
+    this.guildId = Snowflake.of(doc.getLong("guild_id"));
+    this.enabledModules = new HashSet<>(doc.getList("enabled_modules", String.class));
+    this.settings = new Settings().read((Document) doc.get("settings"));
+    this.permissions = new Permissions().read((Document) doc.get("permissions"));
+    return this;
   }
 
   public Snowflake getGuildId() {
@@ -61,6 +64,7 @@ public class GuildSettings {
     return permissions;
   }
 
+
   public Document toDocument() {
     Document doc = new Document();
     doc.append("guild_id", this.guildId.asLong());
@@ -70,12 +74,13 @@ public class GuildSettings {
     return doc;
   }
 
-  public static class Settings {
+  public static class Settings implements DatabaseObject {
 
-    public static Settings fromDocument(Document document) {
-      Settings s = new Settings();
-      s.setPrefix(document.getString("prefix"));
-      return s;
+
+    @Override
+    public Settings read(Document document) {
+      this.prefix = document.getString("prefix");
+      return this;
     }
 
     private String prefix;
@@ -95,29 +100,8 @@ public class GuildSettings {
     }
   }
 
-  public static class Permissions {
+  public static class Permissions implements DatabaseObject {
 
-    public static Permissions fromDocument(Document document) {
-      Map<Snowflake, Set<String>> rolePerms = new HashMap<>();
-      Map<Snowflake, Set<String>> userPerms = new HashMap<>();
-
-      if(document.containsKey("role_permissions")) {
-        for(Entry<String, List<String>> e : ((Map<String, List<String>>)document.get("role_permissions")).entrySet()) {
-          rolePerms.put(Snowflake.of(e.getKey()), new HashSet<>(e.getValue()));
-        }
-      }
-
-      if(document.containsKey("user_permissions")) {
-        for(Entry<String, List<String>> e : ((Map<String, List<String>>)document.get("user_permissions")).entrySet()) {
-          userPerms.put(Snowflake.of(e.getKey()), new HashSet<>(e.getValue()));
-        }
-      }
-
-      Permissions perm = new Permissions();
-      perm.rolePermissions = rolePerms;
-      perm.userPermissions = userPerms;
-      return perm;
-    }
 
     private Map<Snowflake, Set<String>> rolePermissions = new HashMap<>();
     private Map<Snowflake, Set<String>> userPermissions = new HashMap<>();
@@ -128,6 +112,26 @@ public class GuildSettings {
 
     public Map<Snowflake, Set<String>> getUserPermissions() {
       return userPermissions;
+    }
+
+    @Override
+    public Permissions read(Document document) {
+      this.rolePermissions = new HashMap<>();
+      this.userPermissions = new HashMap<>();
+
+      if(document.containsKey("role_permissions")) {
+        for(Entry<String, List<String>> e : ((Map<String, List<String>>)document.get("role_permissions")).entrySet()) {
+          this.rolePermissions.put(Snowflake.of(e.getKey()), new HashSet<>(e.getValue()));
+        }
+      }
+
+      if(document.containsKey("user_permissions")) {
+        for(Entry<String, List<String>> e : ((Map<String, List<String>>)document.get("user_permissions")).entrySet()) {
+          this.userPermissions.put(Snowflake.of(e.getKey()), new HashSet<>(e.getValue()));
+        }
+      }
+
+      return this;
     }
 
     public boolean hasPermission(Snowflake user, Set<Snowflake> roles, String permission) {
@@ -146,6 +150,7 @@ public class GuildSettings {
       String pat = glob.replace("*", "(.)*");
       return Pattern.compile(pat).matches(s);
     }
+
 
     public Document toDocument() {
       Document doc = new Document();

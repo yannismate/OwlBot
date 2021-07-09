@@ -4,7 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import de.yannismate.owlbot.model.GuildSettings.Permissions;
+import de.yannismate.owlbot.model.db.GuildSettings;
+import de.yannismate.owlbot.model.db.GuildSettings.Permissions;
 import discord4j.common.util.Snowflake;
 import java.util.Collections;
 import java.util.List;
@@ -39,7 +40,7 @@ public class GuildSettingsTest {
 
     testDoc = Document.parse(testDoc.toJson());
 
-    assertEquals(testDoc, GuildSettings.fromDocument(testDoc).toDocument());
+    assertEquals(testDoc, new GuildSettings().read(testDoc).toDocument());
 
   }
 

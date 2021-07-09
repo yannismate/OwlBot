@@ -2,7 +2,8 @@ package de.yannismate.owlbot.model;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import de.yannismate.owlbot.model.ModuleSettings.SettingsObject;
+import de.yannismate.owlbot.model.db.ModuleSettings;
+import de.yannismate.owlbot.model.db.ModuleSettings.SettingsObject;
 import discord4j.common.util.Snowflake;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
