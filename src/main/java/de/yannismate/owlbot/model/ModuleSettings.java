@@ -1,5 +1,6 @@
 package de.yannismate.owlbot.model;
 
+import com.google.common.base.Objects;
 import discord4j.common.util.Snowflake;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.Map;
@@ -59,6 +60,10 @@ public class ModuleSettings {
       return new SettingsObject(value);
     }
 
+    public static SettingsObject of(boolean value) {
+      return new SettingsObject(value);
+    }
+
     public static SettingsObject of(int value) {
       return new SettingsObject(value);
     }
@@ -92,6 +97,11 @@ public class ModuleSettings {
       return Optional.empty();
     }
 
+    public Optional<Boolean> getBoolean() {
+      if(internalObject instanceof Boolean) return Optional.of((Boolean)internalObject);
+      return Optional.empty();
+    }
+
     public Optional<Integer> getInt() {
       if(internalObject instanceof Integer) return Optional.of((Integer)internalObject);
       return Optional.empty();
@@ -109,6 +119,24 @@ public class ModuleSettings {
       return Optional.empty();
     }
 
+    public boolean equals(boolean val) {
+      if(internalObject instanceof Boolean) {
+        return (Boolean) internalObject == val;
+      }
+      return false;
+    }
+
+    public boolean equals(long val) {
+      if(internalObject instanceof Long) {
+        return internalObject.equals(val);
+      }
+      return false;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hashCode(internalObject);
+    }
   }
 
 }
