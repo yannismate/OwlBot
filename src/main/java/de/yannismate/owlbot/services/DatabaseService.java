@@ -77,7 +77,7 @@ public class DatabaseService {
         filter.append("module_name", splitKey[1]);
         Document result = db.getCollection("module_settings").find(filter).first();
         if(result == null) return null;
-        return ModuleSettings.fromDocument(result);
+        return new ModuleSettings(Snowflake.of(splitKey[0]), splitKey[1]).read(result);
       });
   public CompletableFuture<Optional<ModuleSettings>> getModuleSettings(Snowflake guildId, String moduleName) {
     return moduleSettingsCache.get(guildId.asLong() + ":" + moduleName).thenApply(Optional::ofNullable);

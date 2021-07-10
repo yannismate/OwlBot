@@ -4,12 +4,11 @@ import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import de.yannismate.owlbot.model.Module;
 import de.yannismate.owlbot.model.db.ModuleSettings;
-import de.yannismate.owlbot.model.db.ModuleSettings.SettingsObject;
+import de.yannismate.owlbot.model.db.ModuleSettings.ModuleSettingsValue;
 import de.yannismate.owlbot.services.DatabaseService;
 import de.yannismate.owlbot.services.DiscordService;
 import discord4j.common.util.Snowflake;
 import discord4j.core.event.domain.guild.MemberJoinEvent;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -29,7 +28,7 @@ public class LoggingModule extends Module {
 
   public LoggingModule() {
     this.name = "Logging";
-    this.description = "Allows logging of joining and leaving users, role changes, kicks, bans and command usage.";
+    this.description = "Allows logging of joining and leaving users, role changes, bans and command usage.";
     this.registerEvents();
   }
 
@@ -37,19 +36,38 @@ public class LoggingModule extends Module {
   public void enable(Snowflake guildId) {
     db.getModuleSettings(guildId, LoggingModule.class.getSimpleName()).thenAccept(moduleSettings -> {
       if(moduleSettings.isPresent()) return;
-      Map<String, SettingsObject> defaultSettings = new HashMap<>();
-      defaultSettings.put("log_member_join", SettingsObject.of(false));
-      defaultSettings.put("log_member_join_channel", SettingsObject.of(-1L));
-      defaultSettings.put("log_member_leave", SettingsObject.of(false));
-      defaultSettings.put("log_member_leave_channel", SettingsObject.of(-1L));
-      defaultSettings.put("log_member_role_changed", SettingsObject.of(false));
-      defaultSettings.put("log_member_role_changed_channel", SettingsObject.of(-1L));
-      defaultSettings.put("log_member_banned", SettingsObject.of(false));
-      defaultSettings.put("log_member_banned_channel", SettingsObject.of(-1L));
-      defaultSettings.put("log_command_executed", SettingsObject.of(false));
-      defaultSettings.put("log_command_executed_channel", SettingsObject.of(-1L));
-      ModuleSettings def = new ModuleSettings(guildId, LoggingModule.class.getSimpleName(), defaultSettings);
-      db.addModuleSettings(def);
+      ModuleSettings md = new ModuleSettings(guildId, this.getClass().getSimpleName());
+      md.getOptions().put("log_member_join", new ModuleSettingsValue(Map.of(
+          "enabled", new ModuleSettingsValue(false),
+          "channel", new ModuleSettingsValue(-1L),
+          "format", new ModuleSettingsValue("\uD83D\uDCE5 {time} <@{userid}> joined the server. Original name was **{usertag}**. Total members: {membercount}")
+      )));
+
+      md.getOptions().put("log_member_leave", new ModuleSettingsValue(Map.of(
+          "enabled", new ModuleSettingsValue(false),
+          "channel", new ModuleSettingsValue(-1L),
+          "format", new ModuleSettingsValue("\uD83D\uDCE4 {time} <@{userid}> left the server. Original name was **{usertag}**. Total members: {membercount}")
+      )));
+
+      md.getOptions().put("log_member_role_change", new ModuleSettingsValue(Map.of(
+          "enabled", new ModuleSettingsValue(false),
+          "channel", new ModuleSettingsValue(-1L),
+          "format", new ModuleSettingsValue("\uD83D\uDDD2 {time} **{usertag}'s** roles changed: `{rolediff}`")
+      )));
+
+      md.getOptions().put("log_member_banned", new ModuleSettingsValue(Map.of(
+          "enabled", new ModuleSettingsValue(false),
+          "channel", new ModuleSettingsValue(-1L),
+          "format", new ModuleSettingsValue("⛔️ {time} <@{userid}> was banned! Original name was **{usertag}**.")
+      )));
+
+      md.getOptions().put("log_command_used", new ModuleSettingsValue(Map.of(
+          "enabled", new ModuleSettingsValue(false),
+          "channel", new ModuleSettingsValue(-1L),
+          "format", new ModuleSettingsValue("\uD83D\uDCE5 {time} **{usertag}'s** executed the command: `{command} {args}` in <#{channelid}>")
+      )));
+
+      db.addModuleSettings(md);
     });
   }
 
@@ -66,17 +84,7 @@ public class LoggingModule extends Module {
           .thenAccept(moduleSettings -> {
 
             if(moduleSettings.isEmpty()) return;
-            if(moduleSettings.get().getSettings().get("log_member_join").equals(false)) return;
-            Optional<Long> possibleChannel = moduleSettings.get().getSettings().get("log_member_join_channel").getLong();
-            if(possibleChannel.isEmpty() || possibleChannel.get() == -1L) return;
-
-            //TODO
-            String logMessage = "";
-
-            discordService.getGateway().getChannelById(Snowflake.of(possibleChannel.get()))
-                .flatMap(channel -> channel.getRestChannel().createMessage(logMessage))
-                .doOnError(error -> logger.atWarn().addArgument(error).log("Error sending log message: {}"))
-                .subscribe();
+            ///TODO
       });
 
     });
