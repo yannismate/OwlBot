@@ -9,5 +9,13 @@ public class MessageUtils {
     channel.flatMap(c -> c.createMessage(message)).subscribe();
   }
 
+  public static String escapeForSingleLineCodeBlock(String content) {
+    return content.replace("`", "'");
+  }
+
+  public static String escapeForMultiLineCodeBlock(String content) {
+    return content.replace("`", "\u200E`");
+  }
+
 
 }
