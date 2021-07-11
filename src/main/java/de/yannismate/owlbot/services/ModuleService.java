@@ -75,10 +75,8 @@ public class ModuleService {
           Object result = cmd.getMethod().invoke(mod, event);
           //Publish CommandExecutionEvent to Bot EventSub
           if(result instanceof Mono) {
-            logger.atInfo().log("GOT MONO");
             Mono<Void> r = (Mono<Void>) result;
             r.doOnSuccess(then -> {
-              logger.atInfo().log("MONO RETURNED");
               String[] args = event.getMessage().getContent().split(" ");
               args = Arrays.copyOfRange(args, 1, args.length);
 
