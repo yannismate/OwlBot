@@ -65,7 +65,7 @@ public class ModuleService {
         if(cmd.getRequiredPermission().length() != 0) {
           if(guildSettings.isEmpty() ||
               !guildSettings.get().getPermissions().hasPermission(event.getMember().get().getId(), event.getMember().get().getRoleIds(), cmd.getRequiredPermission())) {
-            discordService.createMessageInChannel(event.getGuildId().get(), event.getMessage().getChannelId(), "<@" + event.getMember().get().getId().asString() + "> Missing required permissions.");
+            discordService.createMessageInChannel(event.getGuildId().get(), event.getMessage().getChannelId(), "<@" + event.getMember().get().getId().asString() + "> Missing required permissions.").subscribe();
             return;
           }
         }

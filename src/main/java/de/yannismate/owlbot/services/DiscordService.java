@@ -7,11 +7,14 @@ import discord4j.core.DiscordClient;
 import discord4j.core.GatewayDiscordClient;
 import discord4j.discordjson.json.ChannelData;
 import discord4j.discordjson.json.MessageData;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Mono;
 
 @Singleton
 public class DiscordService {
 
+  private final Logger logger = LoggerFactory.getLogger(DiscordService.class);
   private final DiscordClient client;
   private final GatewayDiscordClient gateway;
 
@@ -31,7 +34,9 @@ public class DiscordService {
 
   public Mono<MessageData> createMessageInChannel(Snowflake guildId, Snowflake channelId, String message) {
     ChannelData cd = ChannelData.builder().guildId(guildId.asLong()).id(channelId.asLong()).build();
-    return this.gateway.getRestClient().restChannel(cd).createMessage(message);
+    return this.gateway.getRestClient().restChannel(cd).createMessage(message).doOnError(error -> {
+      logger.atInfo().addArgument(guildId).addArgument(channelId).addArgument(error).log("Failed to send log in G{}:C{}. Error: {}");
+    });
   }
 
 }
