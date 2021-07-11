@@ -5,6 +5,8 @@ import com.google.inject.Singleton;
 import de.yannismate.owlbot.model.Module;
 import de.yannismate.owlbot.model.db.ModuleSettings;
 import de.yannismate.owlbot.model.db.ModuleSettings.ModuleSettingsValue;
+import de.yannismate.owlbot.model.events.CommandExecutionEvent;
+import de.yannismate.owlbot.services.BotEventService;
 import de.yannismate.owlbot.services.DatabaseService;
 import de.yannismate.owlbot.services.DiscordService;
 import de.yannismate.owlbot.util.MessageUtils;
@@ -32,6 +34,9 @@ public class LoggingModule extends Module {
   @Inject
   private DiscordService discordService;
 
+  @Inject
+  private BotEventService botEventService;
+
   public LoggingModule() {
     this.name = "Logging";
     this.description = "Allows logging of joining and leaving users, role changes, bans and command usage.";
@@ -44,6 +49,7 @@ public class LoggingModule extends Module {
 
   @Override
   public void onEnableFor(Snowflake guildId) {
+    System.out.println("ON ENABLE FOR");
     db.getModuleSettings(guildId, LoggingModule.class.getSimpleName()).thenAccept(moduleSettings -> {
       if(moduleSettings.isPresent()) return;
       ModuleSettings md = new ModuleSettings(guildId, this.getClass().getSimpleName());
@@ -71,7 +77,7 @@ public class LoggingModule extends Module {
           "format", new ModuleSettingsValue("⛔️ ${time} <@${userid}> was banned with reason `${reason}`! Original name was **${usertag}**.")
       )));
 
-      md.getOptions().put("log_command_used", new ModuleSettingsValue(Map.of(
+      md.getOptions().put("log_command_executed", new ModuleSettingsValue(Map.of(
           "enabled", new ModuleSettingsValue(false),
           "channel", new ModuleSettingsValue(-1L),
           "format", new ModuleSettingsValue("\uD83D\uDCE5 ${time} **${usertag}'s** executed the command: `${command} ${args}` in <#${channelid}>")
@@ -267,6 +273,47 @@ public class LoggingModule extends Module {
           });
 
     });
+
+    this.botEventService.on(CommandExecutionEvent.class, commandExecutionEvent -> {
+
+      Snowflake guildId = commandExecutionEvent.getGuildId();
+
+      db.getGuildSettings(guildId).thenAccept(guildSettings -> {
+        if(guildSettings.isEmpty()) return;
+        if(!guildSettings.get().getEnabledModules().contains(LoggingModule.class.getSimpleName())) return;
+
+        db.getModuleSettings(guildId, LoggingModule.class.getSimpleName()).thenAccept(moduleSettings -> {
+
+          if(moduleSettings.isEmpty()) return;
+
+          Map<String, ModuleSettingsValue> eventSettings = moduleSettings.get().getOptions().get("log_command_executed").getNested().orElseThrow();
+          if(!(Boolean)eventSettings.get("enabled").getRaw()) return;
+          if(eventSettings.get("channel").getRaw().equals(-1L)) return;
+
+
+          String format = (String) eventSettings.get("format").getRaw();
+          Snowflake channelId = Snowflake.of((Long) eventSettings.get("channel").getRaw());
+
+          String message = MessageUtils.replaceTokens(format, Map.of(
+              "time", "<t:" + Instant.now().getEpochSecond() + ">",
+              "userid", commandExecutionEvent.getMember().getId().asString(),
+              "usertag", commandExecutionEvent.getMember().getTag(),
+              "command", guildSettings.get().getSettings().getPrefix() + commandExecutionEvent.getCommand(),
+              "args", String.join(" ", commandExecutionEvent.getArgs()),
+              "channelid", commandExecutionEvent.getChannelId().asString()
+          ));
+
+          discordService.createMessageInChannel(guildId, channelId, message).subscribe();
+
+
+        });
+
+      });
+
+
+
+    });
+
   }
 
 
