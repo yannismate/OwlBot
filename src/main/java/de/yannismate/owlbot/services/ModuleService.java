@@ -2,13 +2,11 @@ package de.yannismate.owlbot.services;
 
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
-import de.yannismate.owlbot.model.BotEvent;
-import de.yannismate.owlbot.model.events.CommandExecutionEvent;
-import de.yannismate.owlbot.modules.LoggingModule;
 import de.yannismate.owlbot.model.Module;
 import de.yannismate.owlbot.model.ModuleCommand;
+import de.yannismate.owlbot.model.events.CommandExecutionEvent;
+import de.yannismate.owlbot.modules.LoggingModule;
 import de.yannismate.owlbot.modules.ModuleManagerModule;
-import de.yannismate.owlbot.util.MessageUtils;
 import discord4j.core.event.domain.message.MessageCreateEvent;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -67,7 +65,7 @@ public class ModuleService {
         if(cmd.getRequiredPermission().length() != 0) {
           if(guildSettings.isEmpty() ||
               !guildSettings.get().getPermissions().hasPermission(event.getMember().get().getId(), event.getMember().get().getRoleIds(), cmd.getRequiredPermission())) {
-            MessageUtils.createMessageInChannel(event.getMessage().getChannel(), "<@" + event.getMember().get().getId().asString() + "> Missing required permissions.");
+            discordService.createMessageInChannel(event.getGuildId().get(), event.getMessage().getChannelId(), "<@" + event.getMember().get().getId().asString() + "> Missing required permissions.");
             return;
           }
         }

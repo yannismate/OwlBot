@@ -5,6 +5,7 @@ import de.yannismate.owlbot.OwlBot;
 import de.yannismate.owlbot.model.Module;
 import de.yannismate.owlbot.model.ModuleCommand;
 import de.yannismate.owlbot.services.DatabaseService;
+import de.yannismate.owlbot.services.DiscordService;
 import de.yannismate.owlbot.services.ModuleService;
 import de.yannismate.owlbot.util.MessageUtils;
 import discord4j.common.util.Snowflake;
@@ -25,6 +26,9 @@ public class ModuleManagerModule extends Module {
 
   @Inject
   private ModuleService moduleService;
+  
+  @Inject
+  private DiscordService discordService;
 
   public ModuleManagerModule() {
     this.name = "ModuleManager";
@@ -40,13 +44,15 @@ public class ModuleManagerModule extends Module {
 
   @ModuleCommand(command = "modules", requiredPermission = "admin.managemodules")
   public Mono<Void> onModulesCommand(MessageCreateEvent event) {
+    Snowflake guildId = event.getGuildId().get();
+    Snowflake channelId = event.getMessage().getChannelId();
     return Mono.create(callback -> {
       Snowflake userId = event.getMember().get().getId();
       String[] args = event.getMessage().getContent().split(" ");
       args = Arrays.copyOfRange(args, 1, args.length);
 
       if(args.length == 0) {
-        db.getGuildSettings(event.getGuildId().get()).thenAccept(guildSettings -> {
+        db.getGuildSettings(guildId).thenAccept(guildSettings -> {
           if(guildSettings.isEmpty()) return;
           String prefix = guildSettings.get().getSettings().getPrefix();
 
@@ -79,11 +85,11 @@ public class ModuleManagerModule extends Module {
 
         if(args[0].equalsIgnoreCase("info")) {
           if(findModule.isEmpty()) {
-            MessageUtils.createMessageInChannel(event.getMessage().getChannel(), "<@" + userId.asString() + "> Could not find module " + moduleName);
+            discordService.createMessageInChannel(guildId, channelId, "<@" + userId.asString() + "> Could not find module " + moduleName);
             return;
           }
 
-          db.getGuildSettings(event.getGuildId().get()).thenAccept(guildSettings -> {
+          db.getGuildSettings(guildId).thenAccept(guildSettings -> {
 
             if(guildSettings.isEmpty()) return;
 
@@ -119,58 +125,58 @@ public class ModuleManagerModule extends Module {
         } else if(args[0].equalsIgnoreCase("enable")) {
           //Check if entered module exists
           if(findModule.isEmpty()) {
-            MessageUtils.createMessageInChannel(event.getMessage().getChannel(), "<@" + userId.asString() + "> Could not find module " + moduleName);
+            discordService.createMessageInChannel(guildId, channelId, "<@" + userId.asString() + "> Could not find module " + moduleName);
             return;
           }
-          db.getGuildSettings(event.getGuildId().get()).thenAccept(guildSettings -> {
+          db.getGuildSettings(guildId).thenAccept(guildSettings -> {
             if(guildSettings.isEmpty()) return;
             //Check if module is deactivated
             if(guildSettings.get().getEnabledModules().contains(findModule.get().getClass().getSimpleName())) {
-              MessageUtils.createMessageInChannel(event.getMessage().getChannel(), "<@" + userId.asString() + "> " + findModule.get().getName() + " is already enabled!");
+              discordService.createMessageInChannel(guildId, channelId, "<@" + userId.asString() + "> " + findModule.get().getName() + " is already enabled!");
               return;
             }
 
             //Activate
             guildSettings.get().getEnabledModules().add(findModule.get().getClass().getSimpleName());
-            findModule.get().enable(event.getGuildId().get());
+            findModule.get().enable(guildId);
             db.updateGuildSettings(guildSettings.get()).thenAccept((v) -> {
-              MessageUtils.createMessageInChannel(event.getMessage().getChannel(), "<@" + userId.asString() + "> " + findModule.get().getName() + " enabled.");
+              discordService.createMessageInChannel(guildId, channelId, "<@" + userId.asString() + "> " + findModule.get().getName() + " enabled.");
             });
             callback.success();
           });
         } else if(args[0].equalsIgnoreCase("disable")) {
           //Check if entered module exists
           if(findModule.isEmpty()) {
-            MessageUtils.createMessageInChannel(event.getMessage().getChannel(), "<@" + userId.asString() + "> Could not find module " + moduleName);
+            discordService.createMessageInChannel(guildId, channelId, "<@" + userId.asString() + "> Could not find module " + moduleName);
             return;
           }
 
           //Check if module can be deactivated
           if(findModule.get().isAlwaysActive()) {
-            MessageUtils.createMessageInChannel(event.getMessage().getChannel(), "<@" + userId.asString() + "> " + findModule.get().getName() + " cannot be disabled.");
+            discordService.createMessageInChannel(guildId, channelId, "<@" + userId.asString() + "> " + findModule.get().getName() + " cannot be disabled.");
             return;
           }
 
-          db.getGuildSettings(event.getGuildId().get()).thenAccept(guildSettings -> {
+          db.getGuildSettings(guildId).thenAccept(guildSettings -> {
             if(guildSettings.isEmpty()) return;
             //Check if module is active
             if(!guildSettings.get().getEnabledModules().contains(findModule.get().getClass().getSimpleName())) {
-              MessageUtils.createMessageInChannel(event.getMessage().getChannel(), "<@" + userId.asString() + "> " + findModule.get().getName() + " is already disabled!");
+              discordService.createMessageInChannel(guildId, channelId, "<@" + userId.asString() + "> " + findModule.get().getName() + " is already disabled!");
               return;
             }
             //Deactivate
             guildSettings.get().getEnabledModules().remove(findModule.get().getClass().getSimpleName());
-            findModule.get().disable(event.getGuildId().get());
+            findModule.get().disable(guildId);
             db.updateGuildSettings(guildSettings.get()).thenAccept((v) -> {
-              MessageUtils.createMessageInChannel(event.getMessage().getChannel(), "<@" + userId.asString() + "> " + findModule.get().getName() + " disabled.");
+              discordService.createMessageInChannel(guildId, channelId, "<@" + userId.asString() + "> " + findModule.get().getName() + " disabled.");
             });
             callback.success();
           });
         } else {
-          MessageUtils.createMessageInChannel(event.getMessage().getChannel(), "<@" + userId.asString() + "> Unknown subcommand!");
+          discordService.createMessageInChannel(guildId, channelId, "<@" + userId.asString() + "> Unknown subcommand!");
         }
       } else {
-        MessageUtils.createMessageInChannel(event.getMessage().getChannel(), "<@" + userId.asString() + "> Invalid amount of arguments!");
+        discordService.createMessageInChannel(guildId, channelId, "<@" + userId.asString() + "> Invalid amount of arguments!");
       }
     });
 

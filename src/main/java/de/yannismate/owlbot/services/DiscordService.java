@@ -2,8 +2,12 @@ package de.yannismate.owlbot.services;
 
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
+import discord4j.common.util.Snowflake;
 import discord4j.core.DiscordClient;
 import discord4j.core.GatewayDiscordClient;
+import discord4j.discordjson.json.ChannelData;
+import discord4j.discordjson.json.MessageData;
+import reactor.core.publisher.Mono;
 
 @Singleton
 public class DiscordService {
@@ -23,6 +27,11 @@ public class DiscordService {
 
   public GatewayDiscordClient getGateway() {
     return gateway;
+  }
+
+  public Mono<MessageData> createMessageInChannel(Snowflake guildId, Snowflake channelId, String message) {
+    ChannelData cd = ChannelData.builder().guildId(guildId.asLong()).id(channelId.asLong()).build();
+    return this.gateway.getRestClient().restChannel(cd).createMessage(message);
   }
 
 }
