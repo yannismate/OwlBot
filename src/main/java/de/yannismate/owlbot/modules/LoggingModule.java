@@ -9,26 +9,22 @@ import de.yannismate.owlbot.services.DatabaseService;
 import de.yannismate.owlbot.services.DiscordService;
 import de.yannismate.owlbot.util.MessageUtils;
 import discord4j.common.util.Snowflake;
+import discord4j.core.event.domain.guild.BanEvent;
 import discord4j.core.event.domain.guild.MemberJoinEvent;
 import discord4j.core.event.domain.guild.MemberLeaveEvent;
 import discord4j.core.event.domain.guild.MemberUpdateEvent;
 import discord4j.core.object.entity.Role;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @Singleton
 public class LoggingModule extends Module {
-
-  private final Logger logger = LoggerFactory.getLogger(LoggingModule.class);
 
   @Inject
   private DatabaseService db;
@@ -72,7 +68,7 @@ public class LoggingModule extends Module {
       md.getOptions().put("log_member_banned", new ModuleSettingsValue(Map.of(
           "enabled", new ModuleSettingsValue(false),
           "channel", new ModuleSettingsValue(-1L),
-          "format", new ModuleSettingsValue("⛔️ ${time} <@${userid}> was banned! Original name was **${usertag}**.")
+          "format", new ModuleSettingsValue("⛔️ ${time} <@${userid}> was banned with reason `${reason}`! Original name was **${usertag}**.")
       )));
 
       md.getOptions().put("log_command_used", new ModuleSettingsValue(Map.of(
@@ -228,6 +224,48 @@ public class LoggingModule extends Module {
 
 
           });
+    });
+
+    this.discordService.getGateway().on(BanEvent.class).subscribe(banEvent -> {
+      Snowflake guildId = banEvent.getGuildId();
+
+      db.getGuildSettings(guildId)
+          .thenApply(guildSettings -> guildSettings.isPresent() && guildSettings.get().getEnabledModules().contains(LoggingModule.class.getSimpleName()))
+          .thenCompose(e -> e ? db.getModuleSettings(guildId, LoggingModule.class.getSimpleName()) : CompletableFuture.completedFuture(Optional.empty()))
+          .thenAccept(moduleSettings -> {
+
+            if(moduleSettings.isEmpty()) return;
+
+            Map<String, ModuleSettingsValue> eventSettings = moduleSettings.get().getOptions().get("log_member_banned").getNested().orElseThrow();
+            if(!(Boolean)eventSettings.get("enabled").getRaw()) return;
+            if(eventSettings.get("channel").getRaw().equals(-1L)) return;
+
+            String format = (String) eventSettings.get("format").getRaw();
+            Snowflake channelId = Snowflake.of((Long) eventSettings.get("channel").getRaw());
+
+            if(format.contains("${reason}")) {
+              this.discordService.getGateway().getGuildById(guildId).flatMap(g -> g.getBan(banEvent.getUser().getId())).subscribe(ban -> {
+                String message = MessageUtils.replaceTokens(format, Map.of(
+                    "time", "<t:" + Instant.now().getEpochSecond() + ">",
+                    "userid", banEvent.getUser().getId().asString(),
+                    "usertag", banEvent.getUser().getTag(),
+                    "reason", ban.getReason().orElse("-")
+                ));
+
+                discordService.createMessageInChannel(guildId, channelId, message).subscribe();
+              });
+            } else {
+              String message = MessageUtils.replaceTokens(format, Map.of(
+                  "time", "<t:" + Instant.now().getEpochSecond() + ">",
+                  "userid", banEvent.getUser().getId().asString(),
+                  "usertag", banEvent.getUser().getTag()
+                  ));
+
+              discordService.createMessageInChannel(guildId, channelId, message).subscribe();
+            }
+
+          });
+
     });
   }
 
