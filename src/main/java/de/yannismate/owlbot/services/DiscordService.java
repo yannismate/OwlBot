@@ -5,7 +5,7 @@ import com.google.inject.Singleton;
 import discord4j.common.util.Snowflake;
 import discord4j.core.DiscordClient;
 import discord4j.core.GatewayDiscordClient;
-import discord4j.discordjson.json.ChannelData;
+import discord4j.core.object.entity.channel.Channel.Type;
 import discord4j.discordjson.json.MessageData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,10 +33,12 @@ public class DiscordService {
   }
 
   public Mono<MessageData> createMessageInChannel(Snowflake guildId, Snowflake channelId, String message) {
-    ChannelData cd = ChannelData.builder().guildId(guildId.asLong()).id(channelId.asLong()).build();
-    return this.gateway.getRestClient().restChannel(cd).createMessage(message).doOnError(error -> {
-      logger.atInfo().addArgument(guildId).addArgument(channelId).addArgument(error).log("Failed to send log in G{}:C{}. Error: {}");
-    });
+    return this.gateway.getGuildChannels(guildId)
+        .filter(gc -> gc.getType() == Type.GUILD_TEXT)
+        .filter(gc -> gc.getId().asLong() == channelId.asLong())
+        .flatMap(gc -> gc.getRestChannel().createMessage(message))
+        .doOnError(error -> logger.atInfo().addArgument(guildId).addArgument(channelId).addArgument(error).log("Failed to send log in G{}:C{}. Error: {}"))
+        .take(1).next();
   }
 
 }
