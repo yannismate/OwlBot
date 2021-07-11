@@ -3,7 +3,6 @@ package de.yannismate.owlbot.model.db;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import de.yannismate.owlbot.model.db.ModuleSettings;
 import de.yannismate.owlbot.model.db.ModuleSettings.ModuleSettingsValue;
 import de.yannismate.owlbot.model.db.ModuleSettings.ModuleSettingsValue.ModuleSettingsValueType;
 import discord4j.common.util.Snowflake;
