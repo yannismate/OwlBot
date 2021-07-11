@@ -3,6 +3,7 @@ package de.yannismate.owlbot;
 import com.google.inject.AbstractModule;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
+import de.yannismate.owlbot.model.Module;
 import de.yannismate.owlbot.services.BotEventService;
 import de.yannismate.owlbot.services.BotSettingsService;
 import de.yannismate.owlbot.services.DatabaseService;
@@ -47,6 +48,7 @@ public class OwlBot {
     moduleService.getAvailableModules().stream()
         .peek(c -> logger.atInfo().addArgument(c.getCanonicalName()).log("Loading Module in {}..."))
         .map(injector::getInstance)
+        .peek(Module::postInit)
         .peek(m -> logger.atInfo().addArgument(m.getName()).log("Successfully loaded {}"))
         .forEach(moduleService::addModule);
   }

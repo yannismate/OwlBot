@@ -7,7 +7,6 @@ import de.yannismate.owlbot.model.ModuleCommand;
 import de.yannismate.owlbot.services.DatabaseService;
 import de.yannismate.owlbot.services.DiscordService;
 import de.yannismate.owlbot.services.ModuleService;
-import de.yannismate.owlbot.util.MessageUtils;
 import discord4j.common.util.Snowflake;
 import discord4j.core.event.domain.message.MessageCreateEvent;
 import discord4j.core.spec.EmbedCreateSpec;
@@ -35,12 +34,6 @@ public class ModuleManagerModule extends Module {
     this.description = "Allow enabling, disabling and configuration of bot modules.";
     this.alwaysActive = true;
   }
-
-  @Override
-  public void enable(Snowflake guildId) {}
-
-  @Override
-  public void disable(Snowflake guildId) {}
 
   @ModuleCommand(command = "modules", requiredPermission = "admin.managemodules")
   public Mono<Void> onModulesCommand(MessageCreateEvent event) {
@@ -138,7 +131,7 @@ public class ModuleManagerModule extends Module {
 
             //Activate
             guildSettings.get().getEnabledModules().add(findModule.get().getClass().getSimpleName());
-            findModule.get().enable(guildId);
+            findModule.get().onEnableFor(guildId);
             db.updateGuildSettings(guildSettings.get()).thenAccept((v) -> {
               discordService.createMessageInChannel(guildId, channelId, "<@" + userId.asString() + "> " + findModule.get().getName() + " enabled.").subscribe();
             });
@@ -166,7 +159,7 @@ public class ModuleManagerModule extends Module {
             }
             //Deactivate
             guildSettings.get().getEnabledModules().remove(findModule.get().getClass().getSimpleName());
-            findModule.get().disable(guildId);
+            findModule.get().onDisableFor(guildId);
             db.updateGuildSettings(guildSettings.get()).thenAccept((v) -> {
               discordService.createMessageInChannel(guildId, channelId, "<@" + userId.asString() + "> " + findModule.get().getName() + " disabled.").subscribe();
             });

@@ -9,8 +9,10 @@ public abstract class Module {
   protected boolean alwaysActive = false;
   protected boolean beta = false;
 
-  abstract public void enable(Snowflake guildId);
-  abstract public void disable(Snowflake guildId);
+  public void postInit() {}
+
+  public void onEnableFor(Snowflake guildId) {}
+  public void onDisableFor(Snowflake guildId) {}
 
   public String getName() {
     return name;
