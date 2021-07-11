@@ -75,16 +75,19 @@ public class ModuleService {
           Object result = cmd.getMethod().invoke(mod, event);
           //Publish CommandExecutionEvent to Bot EventSub
           if(result instanceof Mono) {
+            logger.atInfo().log("GOT MONO");
             Mono<Void> r = (Mono<Void>) result;
-            r.subscribe(then -> {
+            r.doOnSuccess(then -> {
+              logger.atInfo().log("MONO RETURNED");
               String[] args = event.getMessage().getContent().split(" ");
               args = Arrays.copyOfRange(args, 1, args.length);
 
               CommandExecutionEvent commandExecutionEvent = new CommandExecutionEvent(
                   event.getGuildId().get(), event.getMessage().getChannelId(),
-                  event.getMember().get().getId(), command, args);
+                  event.getMember().get(), command, args);
+
               eventService.publishEvent(commandExecutionEvent);
-            });
+            }).subscribe();
           }
         } catch (IllegalAccessException | InvocationTargetException e) {
           logger.atError().addArgument(command).addArgument(e).log("Could not dispatch annotated command \"{}\"! {}");

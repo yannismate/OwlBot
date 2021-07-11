@@ -2,21 +2,22 @@ package de.yannismate.owlbot.model.events;
 
 import de.yannismate.owlbot.model.BotEvent;
 import discord4j.common.util.Snowflake;
+import discord4j.core.object.entity.Member;
 
 public class CommandExecutionEvent implements BotEvent {
 
   private final Snowflake guildId;
   private final Snowflake channelId;
-  private final Snowflake userId;
+  private final Member member;
 
   private final String command;
   private final String[] args;
 
   public CommandExecutionEvent(Snowflake guildId, Snowflake channelId,
-      Snowflake userId, String command, String[] args) {
+      Member member, String command, String[] args) {
     this.guildId = guildId;
     this.channelId = channelId;
-    this.userId = userId;
+    this.member = member;
     this.command = command;
     this.args = args;
   }
@@ -29,8 +30,8 @@ public class CommandExecutionEvent implements BotEvent {
     return channelId;
   }
 
-  public Snowflake getUserId() {
-    return userId;
+  public Member getMember() {
+    return member;
   }
 
   public String getCommand() {
