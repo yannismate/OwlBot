@@ -8,6 +8,7 @@ public abstract class Module {
   protected String description = "No description";
   protected boolean alwaysActive = false;
   protected boolean beta = false;
+  protected Class[] dependencies = {};
 
   public void postInit() {}
 
@@ -28,5 +29,9 @@ public abstract class Module {
 
   public boolean isBeta() {
     return beta;
+  }
+
+  public Class[] getDependencies() {
+    return dependencies;
   }
 }

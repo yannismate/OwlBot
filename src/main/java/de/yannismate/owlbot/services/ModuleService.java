@@ -122,6 +122,10 @@ public class ModuleService {
     return this.modules.values().stream().filter(m -> m.getName().equalsIgnoreCase(name)).findFirst();
   }
 
+  public Optional<Module> getModuleByClassName(String className) {
+    return this.modules.values().stream().filter(m -> m.getClass().getSimpleName().equalsIgnoreCase(className)).findFirst();
+  }
+
   public Map<String, ModuleCommandData> getCommandsByModuleClass(Class<? extends Module> moduleClass) {
     return this.registeredCommands.entrySet().stream()
         .filter(e -> e.getValue().cmdClass == moduleClass)

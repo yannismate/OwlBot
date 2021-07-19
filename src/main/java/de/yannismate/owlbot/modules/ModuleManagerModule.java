@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import reactor.core.publisher.Mono;
 
 public class ModuleManagerModule extends Module {
@@ -106,6 +107,12 @@ public class ModuleManagerModule extends Module {
                 spec.addField("Enabled", "❌", false);
               }
               spec.addField("Commands", commandsString, false);
+              if(findModule.get().getDependencies().length > 0) {
+                spec.addField("Dependencies", Arrays.stream(findModule.get().getDependencies())
+                        .map(moduleService::getModuleByClass)
+                        .map(Module::getName).collect(Collectors.joining(", "))
+                    , false);
+              }
               spec.setFooter("OwlBot v" + OwlBot.VERSION, null);
               spec.setTimestamp(Instant.now());
             });
@@ -126,6 +133,17 @@ public class ModuleManagerModule extends Module {
             //Check if module is deactivated
             if(guildSettings.get().getEnabledModules().contains(findModule.get().getClass().getSimpleName())) {
               discordService.createMessageInChannel(guildId, channelId, "<@" + userId.asString() + "> " + findModule.get().getName() + " is already enabled!").subscribe();
+              return;
+            }
+
+            //Check if module needs dependencies
+            Stream<String> unresolvedDependencies = Arrays.stream(findModule.get().getDependencies())
+                .filter(clazz -> guildSettings.get().getEnabledModules().contains(clazz.getSimpleName()))
+                .map(clazz -> moduleService.getModuleByClass(clazz).getName());
+
+            if(unresolvedDependencies.findAny().isPresent()) {
+              discordService.createMessageInChannel(guildId, channelId, "<@" + userId.asString() + "> " + findModule.get().getName() + " depends on one or more disabled Modules: `"
+                  + unresolvedDependencies.collect(Collectors.joining(", ")) + "`!").subscribe();
               return;
             }
 
@@ -157,6 +175,20 @@ public class ModuleManagerModule extends Module {
               discordService.createMessageInChannel(guildId, channelId, "<@" + userId.asString() + "> " + findModule.get().getName() + " is already disabled!").subscribe();
               return;
             }
+
+            //Check if deactivating the Module would break dependencies
+            Stream<String> unresolvedDependencies = guildSettings.get().getEnabledModules().stream()
+                .map(s -> moduleService.getModuleByClassName(s).orElseThrow())
+                .filter(module -> Arrays.stream(module.getDependencies()).anyMatch(c -> (c == findModule.get().getClass())))
+                .map(Module::getName);
+
+            if(unresolvedDependencies.findAny().isPresent()) {
+              discordService.createMessageInChannel(guildId, channelId, "<@" + userId.asString() + "> " + findModule.get().getName() + " is required by one or more enabled Modules: `"
+                  + unresolvedDependencies.collect(Collectors.joining(", ")) + "`!").subscribe();
+              return;
+            }
+
+
             //Deactivate
             guildSettings.get().getEnabledModules().remove(findModule.get().getClass().getSimpleName());
             findModule.get().onDisableFor(guildId);
