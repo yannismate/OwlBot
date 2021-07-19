@@ -13,6 +13,7 @@ import com.mongodb.client.model.UpdateOptions;
 import de.yannismate.owlbot.model.db.GuildSettings;
 import de.yannismate.owlbot.model.db.ModuleSettings;
 import discord4j.common.util.Snowflake;
+import java.util.Date;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -103,6 +104,15 @@ public class DatabaseService {
       db.getCollection("guild_settings")
           .updateOne(filter, new Document("$set", moduleSettings.toDocument()),
               new UpdateOptions().upsert(true));
+    }, executor);
+  }
+
+  public CompletableFuture<Void> insertCachedMessage(Snowflake messageId, String content) {
+    return CompletableFuture.runAsync(() -> {
+      Document doc = new Document("msg_id", messageId.asLong());
+      doc.append("content", content);
+      doc.append("created_at", new Date());
+      db.getCollection("msg_temp").insertOne(doc);
     }, executor);
   }
 

@@ -15,6 +15,7 @@ import discord4j.core.event.domain.guild.BanEvent;
 import discord4j.core.event.domain.guild.MemberJoinEvent;
 import discord4j.core.event.domain.guild.MemberLeaveEvent;
 import discord4j.core.event.domain.guild.MemberUpdateEvent;
+import discord4j.core.event.domain.message.MessageCreateEvent;
 import discord4j.core.object.entity.Role;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -37,6 +38,9 @@ public class LoggingModule extends Module {
   @Inject
   private BotEventService botEventService;
 
+  @Inject
+  private DatabaseService databaseService;
+
   public LoggingModule() {
     this.name = "Logging";
     this.description = "Allows logging of joining and leaving users, role changes, bans and command usage.";
@@ -49,7 +53,6 @@ public class LoggingModule extends Module {
 
   @Override
   public void onEnableFor(Snowflake guildId) {
-    System.out.println("ON ENABLE FOR");
     db.getModuleSettings(guildId, LoggingModule.class.getSimpleName()).thenAccept(moduleSettings -> {
       if(moduleSettings.isPresent()) return;
       ModuleSettings md = new ModuleSettings(guildId, this.getClass().getSimpleName());
@@ -311,6 +314,19 @@ public class LoggingModule extends Module {
       });
 
 
+
+    });
+
+    this.discordService.getGateway().on(MessageCreateEvent.class).subscribe(messageCreateEvent -> {
+      if(messageCreateEvent.getMember().isEmpty()) return;
+
+      String content = messageCreateEvent.getMessage().getContent();
+      content += messageCreateEvent.getMessage().getEmbeds().stream()
+          .filter(embed -> embed.getImage().isPresent())
+          .map(embed -> " " + embed.getImage().get().getProxyUrl())
+          .collect(Collectors.joining());
+
+      databaseService.insertCachedMessage(messageCreateEvent.getMessage().getId(), content);
 
     });
 
