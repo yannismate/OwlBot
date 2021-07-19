@@ -2,6 +2,8 @@ package de.yannismate.owlbot.services;
 
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.cloudyrock.mongock.driver.mongodb.v3.driver.MongoCore3Driver;
+import com.github.cloudyrock.standalone.MongockStandalone;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import com.mongodb.client.MongoClient;
@@ -31,6 +33,14 @@ public class DatabaseService {
   public DatabaseService(BotSettingsService settingsService) {
     MongoClient client = MongoClients.create();
     this.db = client.getDatabase("owlbot");
+
+    logger.info("Running Mongock migrations.");
+    MongockStandalone.builder()
+        .setDriver(MongoCore3Driver.withDefaultLock(client, "owlbot"))
+        .addChangeLogsScanPackage("de.yannismate.owlbot.migrations")
+        .buildRunner()
+        .execute();
+    logger.info("Migrations completed.");
   }
 
   public CompletableFuture<Void> addGuild(Snowflake guildId, Snowflake ownerId) {
