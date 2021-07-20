@@ -3,6 +3,7 @@ package de.yannismate.owlbot.modules;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import de.yannismate.owlbot.model.Module;
+import de.yannismate.owlbot.model.db.CachedMessage;
 import de.yannismate.owlbot.model.db.ModuleSettings;
 import de.yannismate.owlbot.model.db.ModuleSettings.ModuleSettingsValue;
 import de.yannismate.owlbot.model.events.CommandExecutionEvent;
@@ -16,6 +17,8 @@ import discord4j.core.event.domain.guild.MemberJoinEvent;
 import discord4j.core.event.domain.guild.MemberLeaveEvent;
 import discord4j.core.event.domain.guild.MemberUpdateEvent;
 import discord4j.core.event.domain.message.MessageCreateEvent;
+import discord4j.core.event.domain.message.MessageDeleteEvent;
+import discord4j.core.event.domain.message.MessageUpdateEvent;
 import discord4j.core.object.entity.Role;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -84,6 +87,18 @@ public class LoggingModule extends Module {
           "enabled", new ModuleSettingsValue(false),
           "channel", new ModuleSettingsValue(-1L),
           "format", new ModuleSettingsValue("\uD83D\uDCE5 ${time} **${usertag}'s** executed the command: `${command} ${args}` in <#${channelid}>")
+      )));
+
+      md.getOptions().put("log_message_deleted", new ModuleSettingsValue(Map.of(
+          "enabled", new ModuleSettingsValue(false),
+          "channel", new ModuleSettingsValue(-1L),
+          "format", new ModuleSettingsValue("\uD83D\uDDD1 ${time} **Channel:** <#${channelid}> **${usertag}'s** message got deleted. Content: ```${oldcontent}```")
+      )));
+
+      md.getOptions().put("log_message_edited", new ModuleSettingsValue(Map.of(
+          "enabled", new ModuleSettingsValue(false),
+          "channel", new ModuleSettingsValue(-1L),
+          "format", new ModuleSettingsValue("✎ ${time} **Channel:** <#${channelid}> **${usertag}** edited their message. Old content: ```${oldcontent}```")
       )));
 
       db.addModuleSettings(md);
@@ -326,7 +341,136 @@ public class LoggingModule extends Module {
           .map(embed -> " " + embed.getImage().get().getProxyUrl())
           .collect(Collectors.joining());
 
-      databaseService.insertCachedMessage(messageCreateEvent.getMessage().getId(), content);
+      CachedMessage msg = new CachedMessage(messageCreateEvent.getMessage().getId(), content,
+          messageCreateEvent.getMember().get().getId(), messageCreateEvent.getMember().get().getTag());
+      databaseService.insertCachedMessage(msg);
+    });
+
+    this.discordService.getGateway().on(MessageDeleteEvent.class).subscribe(messageDeleteEvent -> {
+
+      if(messageDeleteEvent.getGuildId().isEmpty()) return;
+      Snowflake guildId = messageDeleteEvent.getGuildId().get();
+
+      db.getGuildSettings(guildId)
+          .thenApply(guildSettings -> guildSettings.isPresent() && guildSettings.get().getEnabledModules().contains(LoggingModule.class.getSimpleName()))
+          .thenCompose(e -> e ? db.getModuleSettings(guildId, LoggingModule.class.getSimpleName()) : CompletableFuture.completedFuture(Optional.empty()))
+          .thenAccept(moduleSettings -> {
+
+            if(moduleSettings.isEmpty()) return;
+
+            Map<String, ModuleSettingsValue> eventSettings = moduleSettings.get().getOptions().get("log_message_deleted").getNested().orElseThrow();
+            if(!(Boolean)eventSettings.get("enabled").getRaw()) return;
+            if(eventSettings.get("channel").getRaw().equals(-1L)) return;
+
+            String format = (String) eventSettings.get("format").getRaw();
+            Snowflake channelId = Snowflake.of((Long) eventSettings.get("channel").getRaw());
+
+            if(messageDeleteEvent.getMessage().isPresent() && messageDeleteEvent.getMessage().get().getAuthor().isPresent()) {
+
+              String content = messageDeleteEvent.getMessage().get().getContent();
+              content += messageDeleteEvent.getMessage().get().getEmbeds().stream()
+                  .filter(embed -> embed.getImage().isPresent())
+                  .map(embed -> " " + embed.getImage().get().getProxyUrl())
+                  .collect(Collectors.joining());
+
+              String message = MessageUtils.replaceTokens(format, Map.of(
+                  "time", "<t:" + Instant.now().getEpochSecond() + ">",
+                  "channelid", messageDeleteEvent.getChannelId().asString(),
+                  "userid", messageDeleteEvent.getMessage().get().getAuthor().get().getId().asString(),
+                  "oldcontent", MessageUtils.escapeForMultiLineCodeBlock(content),
+                  "usertag", messageDeleteEvent.getMessage().get().getAuthor().get().getTag()
+              ));
+
+              discordService.createMessageInChannel(guildId, channelId, message).subscribe();
+
+            } else {
+              db.getCachedMessage(messageDeleteEvent.getMessageId()).thenAccept(cachedMsg -> {
+
+                if(cachedMsg.isEmpty()) return;
+
+                String message = MessageUtils.replaceTokens(format, Map.of(
+                    "time", "<t:" + Instant.now().getEpochSecond() + ">",
+                    "channelid", messageDeleteEvent.getChannelId().asString(),
+                    "userid", cachedMsg.get().getSenderId().asString(),
+                    "oldcontent", MessageUtils.escapeForMultiLineCodeBlock(cachedMsg.get().getContent()),
+                    "usertag", cachedMsg.get().getSenderTag()
+                ));
+
+                discordService.createMessageInChannel(guildId, channelId, message).subscribe();
+
+              });
+            }
+
+          });
+
+
+    });
+
+    this.discordService.getGateway().on(MessageUpdateEvent.class).subscribe(messageUpdateEvent -> {
+
+      if(messageUpdateEvent.getGuildId().isEmpty()) return;
+      Snowflake guildId = messageUpdateEvent.getGuildId().get();
+
+      db.getGuildSettings(guildId)
+          .thenApply(guildSettings -> guildSettings.isPresent() && guildSettings.get().getEnabledModules().contains(LoggingModule.class.getSimpleName()))
+          .thenCompose(e -> e ? db.getModuleSettings(guildId, LoggingModule.class.getSimpleName()) : CompletableFuture.completedFuture(Optional.empty()))
+          .thenAccept(moduleSettings -> {
+
+            if(moduleSettings.isEmpty()) return;
+
+            Map<String, ModuleSettingsValue> eventSettings = moduleSettings.get().getOptions().get("log_message_edited").getNested().orElseThrow();
+            if(!(Boolean)eventSettings.get("enabled").getRaw()) return;
+            if(eventSettings.get("channel").getRaw().equals(-1L)) return;
+
+            String format = (String) eventSettings.get("format").getRaw();
+            Snowflake channelId = Snowflake.of((Long) eventSettings.get("channel").getRaw());
+
+            if(messageUpdateEvent.getOld().isPresent() && messageUpdateEvent.getOld().get().getAuthor().isPresent()) {
+
+              String content = messageUpdateEvent.getOld().get().getContent();
+              content += messageUpdateEvent.getOld().get().getEmbeds().stream()
+                  .filter(embed -> embed.getImage().isPresent())
+                  .map(embed -> " " + embed.getImage().get().getProxyUrl())
+                  .collect(Collectors.joining());
+
+              String message = MessageUtils.replaceTokens(format, Map.of(
+                  "time", "<t:" + Instant.now().getEpochSecond() + ">",
+                  "channelid", messageUpdateEvent.getChannelId().asString(),
+                  "userid", messageUpdateEvent.getOld().get().getAuthor().get().getId().asString(),
+                  "oldcontent", MessageUtils.escapeForMultiLineCodeBlock(content),
+                  "usertag", messageUpdateEvent.getOld().get().getAuthor().get().getTag()
+              ));
+
+              discordService.createMessageInChannel(guildId, channelId, message).subscribe();
+
+            } else {
+              db.getCachedMessage(messageUpdateEvent.getMessageId()).thenAccept(cachedMsg -> {
+
+                if(cachedMsg.isEmpty()) return;
+
+                String message = MessageUtils.replaceTokens(format, Map.of(
+                    "time", "<t:" + Instant.now().getEpochSecond() + ">",
+                    "channelid", messageUpdateEvent.getChannelId().asString(),
+                    "userid", cachedMsg.get().getSenderId().asString(),
+                    "oldcontent", MessageUtils.escapeForMultiLineCodeBlock(cachedMsg.get().getContent()),
+                    "usertag", cachedMsg.get().getSenderTag()
+                ));
+
+                discordService.createMessageInChannel(guildId, channelId, message).subscribe();
+
+                String content = messageUpdateEvent.getCurrentContent().orElse("");
+                content += messageUpdateEvent.getCurrentEmbeds().stream()
+                    .filter(embed -> embed.getImage().isPresent())
+                    .map(embed -> " " + embed.getImage().get().getProxyUrl())
+                    .collect(Collectors.joining());
+
+                cachedMsg.get().setContent(content);
+                db.updateCachedMessage(cachedMsg.get());
+
+              });
+            }
+
+          });
 
     });
 

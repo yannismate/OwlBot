@@ -10,10 +10,10 @@ import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.UpdateOptions;
+import de.yannismate.owlbot.model.db.CachedMessage;
 import de.yannismate.owlbot.model.db.GuildSettings;
 import de.yannismate.owlbot.model.db.ModuleSettings;
 import discord4j.common.util.Snowflake;
-import java.util.Date;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -107,12 +107,23 @@ public class DatabaseService {
     }, executor);
   }
 
-  public CompletableFuture<Void> insertCachedMessage(Snowflake messageId, String content) {
+  public CompletableFuture<Void> insertCachedMessage(CachedMessage cachedMessage) {
     return CompletableFuture.runAsync(() -> {
-      Document doc = new Document("msg_id", messageId.asLong());
-      doc.append("content", content);
-      doc.append("created_at", new Date());
-      db.getCollection("msg_temp").insertOne(doc);
+      db.getCollection("msg_temp").insertOne(cachedMessage.toDocument());
+    }, executor);
+  }
+  public CompletableFuture<Void> updateCachedMessage(CachedMessage cachedMessage) {
+    return CompletableFuture.runAsync(() -> {
+      Document filter = new Document("msg_id", cachedMessage.getMessageId().asLong());
+      db.getCollection("msg_temp").replaceOne(filter, cachedMessage.toDocument());
+    }, executor);
+  }
+  public CompletableFuture<Optional<CachedMessage>> getCachedMessage(Snowflake messageId) {
+    return CompletableFuture.supplyAsync(() -> {
+      Document filter = new Document("msg_id", messageId.asLong());
+      Document msgDoc = db.getCollection("msg_temp").find(filter).first();
+      if(msgDoc == null) return Optional.empty();
+      return Optional.of(new CachedMessage().read(msgDoc));
     }, executor);
   }
 
