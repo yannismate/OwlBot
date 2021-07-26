@@ -36,7 +36,7 @@ public class ModuleManagerModule extends Module {
     this.alwaysActive = true;
   }
 
-  @ModuleCommand(command = "modules", requiredPermission = "admin.managemodules")
+  @ModuleCommand(command = "modules", requiredPermission = "admin.modules.manage")
   public Mono<Void> onModulesCommand(MessageCreateEvent event) {
     Snowflake guildId = event.getGuildId().get();
     Snowflake channelId = event.getMessage().getChannelId();
