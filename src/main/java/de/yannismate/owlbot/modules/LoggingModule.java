@@ -2,7 +2,9 @@ package de.yannismate.owlbot.modules;
 
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
+import de.yannismate.owlbot.OwlBot;
 import de.yannismate.owlbot.model.Module;
+import de.yannismate.owlbot.model.ModuleCommand;
 import de.yannismate.owlbot.model.db.CachedMessage;
 import de.yannismate.owlbot.model.db.ModuleSettings;
 import de.yannismate.owlbot.model.db.ModuleSettings.ModuleSettingsValue;
@@ -22,12 +24,17 @@ import discord4j.core.event.domain.message.MessageUpdateEvent;
 import discord4j.core.object.entity.Role;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+import reactor.core.publisher.Mono;
 
 @Singleton
 public class LoggingModule extends Module {
@@ -43,6 +50,9 @@ public class LoggingModule extends Module {
 
   @Inject
   private DatabaseService databaseService;
+
+  private final Set<String> availableLoggingTypes = Set.of("member_join", "member_leave", "member_role_change",
+      "member_banned", "command_executed", "message_deleted", "message_edited");
 
   public LoggingModule() {
     this.name = "Logging";
@@ -86,7 +96,7 @@ public class LoggingModule extends Module {
       md.getOptions().put("log_command_executed", new ModuleSettingsValue(Map.of(
           "enabled", new ModuleSettingsValue(false),
           "channel", new ModuleSettingsValue(-1L),
-          "format", new ModuleSettingsValue("\uD83D\uDCE5 ${time} **${usertag}'s** executed the command: `${command} ${args}` in <#${channelid}>")
+          "format", new ModuleSettingsValue("\uD83E\uDD16 ${time} **${usertag}'s** executed the command: `${command} ${args}` in <#${channelid}>")
       )));
 
       md.getOptions().put("log_message_deleted", new ModuleSettingsValue(Map.of(
@@ -474,6 +484,181 @@ public class LoggingModule extends Module {
 
     });
 
+  }
+
+  @ModuleCommand(command = "logging", requiredPermission = "admin.logging.manage")
+  public Mono<Void> onModulesCommand(MessageCreateEvent event) {
+    Snowflake guildId = event.getGuildId().get();
+    Snowflake channelId = event.getMessage().getChannelId();
+    Snowflake userId = event.getMember().get().getId();
+
+    return Mono.create(callback -> {
+
+      String[] argsTemp = event.getMessage().getContent().split(" ");
+      final String[] args = Arrays.copyOfRange(argsTemp, 1, argsTemp.length);
+
+      db.getGuildSettings(guildId).thenAccept(guildSettings -> {
+        if(guildSettings.isEmpty()) return;
+
+        db.getModuleSettings(guildId, LoggingModule.class.getSimpleName()).thenAccept(moduleSettings -> {
+          if(moduleSettings.isEmpty()) return;
+
+
+          Function<String, Boolean> isEnabled = name -> (Boolean) moduleSettings.get().getOptions().get("log_" + name).getNested().orElse(Map.of("enabled", new ModuleSettingsValue(false))).get("enabled").getRaw();
+          Function<String, String> format = name -> (String) moduleSettings.get().getOptions().get("log_" + name).getNested().orElse(Map.of("format", new ModuleSettingsValue("?"))).get("format").getRaw();
+          Function<String, Long> channel = name -> (Long) moduleSettings.get().getOptions().get("log_" + name).getNested().orElse(Map.of("channel", new ModuleSettingsValue(-1L))).get("channel").getRaw();
+          Function<String, String> tokens = name -> {
+            switch (name.toLowerCase()) {
+              case "member_join":
+              case "member_leave":
+                return "${time}, ${userid}, ${usertag}, ${membercount}";
+              case "member_role_change":
+                return "${time}, ${userid}, ${usertag}, ${oldroles}, ${newroles}, ${rolediff}";
+              case "member_banned":
+                return "${time}, ${userid}, ${usertag}, ${reason}";
+              case "command_executed":
+                return "${time}, ${userid}, ${usertag}, ${command}, ${args}, ${channelid}";
+              case "message_deleted":
+              case "message_edited":
+                return "${time}, ${channelid}, ${userid}, ${usertag}, ${oldcontent}";
+            }
+            return "";
+          };
+
+          if(args.length == 0) {
+            String prefix = guildSettings.get().getSettings().getPrefix();
+            event.getMessage().getChannel().flatMap(messageChannel -> messageChannel.createEmbed(spec -> {
+              spec.setTitle("Logging");
+              spec.setColor(OwlBot.COLOR_NEUTRAL);
+              spec.setDescription("`" + prefix + "logging info [type]` - Shows current settings of a logging type\n"
+                  + "`" + prefix + "logging enable [type]` - Enable logging type\n"
+                  + "`" + prefix + "logging disable [type]` - Enable logging type\n"
+                  + "`" + prefix + "logging set channel [type] [channel]` - Set channel for messages of the given logging type\n"
+                  + "`" + prefix + "logging set format [type] [format]` - Set format for given logging type");
+              spec.setFooter("OwlBot v" + OwlBot.VERSION, null);
+              spec.setTimestamp(Instant.now());
+              spec.addField("member_join", (isEnabled.apply("member_join") ? "✅" : "❌"), false);
+              spec.addField("member_leave", (isEnabled.apply("member_leave") ? "✅" : "❌"), false);
+              spec.addField("member_role_change", (isEnabled.apply("member_role_change") ? "✅" : "❌"), false);
+              spec.addField("member_banned", (isEnabled.apply("member_banned") ? "✅" : "❌"), false);
+              spec.addField("command_executed", (isEnabled.apply("command_executed") ? "✅" : "❌"), false);
+              spec.addField("message_deleted", (isEnabled.apply("message_deleted") ? "✅" : "❌"), false);
+              spec.addField("message_edited", (isEnabled.apply("message_edited") ? "✅" : "❌"), false);
+            })).subscribe();
+            callback.success();
+          } else if(args.length == 1) {
+            discordService.createMessageInChannel(guildId, channelId, "<@" + userId.asString() + "> Invalid amount of arguments!").subscribe();
+          } else if(args.length == 2) {
+            if(args[0].equalsIgnoreCase("info")) {
+
+              if(!availableLoggingTypes.contains(args[1].toLowerCase())) {
+                discordService.createMessageInChannel(guildId, channelId, "<@" + userId.asString() + "> Invalid logging type!").subscribe();
+                return;
+              }
+
+              event.getMessage().getChannel().flatMap(messageChannel -> messageChannel.createEmbed(spec -> {
+                spec.setTitle("Logging " + args[1].toLowerCase());
+                spec.setColor(isEnabled.apply(args[1]) ? OwlBot.COLOR_POSITIVE : OwlBot.COLOR_NEGATIVE);
+                spec.setFooter("OwlBot v" + OwlBot.VERSION, null);
+                spec.setTimestamp(Instant.now());
+                spec.addField("Enabled", (isEnabled.apply(args[1]) ? "✅" : "❌"), false);
+                spec.addField("Channel", "<#" + channel.apply(args[1]) + ">", false);
+                spec.addField("Format", "`" + MessageUtils.escapeForSingleLineCodeBlock(format.apply(args[1])) + "`", false);
+                spec.addField("Tokens", tokens.apply(args[1]), false);
+              })).subscribe();
+              callback.success();
+            } else if(args[0].equalsIgnoreCase("enable")) {
+              if(!availableLoggingTypes.contains(args[1].toLowerCase())) {
+                discordService.createMessageInChannel(guildId, channelId, "<@" + userId.asString() + "> Invalid logging type!").subscribe();
+                return;
+              }
+              if(isEnabled.apply(args[1])) {
+                discordService.createMessageInChannel(guildId, channelId, "<@" + userId.asString() + "> Logging type is already enabled!").subscribe();
+                return;
+              }
+
+              moduleSettings.get().getOptions().get("log_" + args[1].toLowerCase()).getNested().orElse(new HashMap<>()).put("enabled", new ModuleSettingsValue(true));
+              db.updateModuleSettings(moduleSettings.get()).thenAccept(v -> {
+                discordService.createMessageInChannel(guildId, channelId, "<@" + userId.asString() + "> Logging type " + args[1].toLowerCase() +  " successfully enabled!").subscribe();
+                callback.success();
+              });
+
+            } else if(args[0].equalsIgnoreCase("disable")) {
+              if(!availableLoggingTypes.contains(args[1].toLowerCase())) {
+                discordService.createMessageInChannel(guildId, channelId, "<@" + userId.asString() + "> Invalid logging type!").subscribe();
+                return;
+              }
+              if(!isEnabled.apply(args[1])) {
+                discordService.createMessageInChannel(guildId, channelId, "<@" + userId.asString() + "> Logging type is already disabled!").subscribe();
+                return;
+              }
+
+              moduleSettings.get().getOptions().get("log_" + args[1].toLowerCase()).getNested().orElse(new HashMap<>()).put("enabled", new ModuleSettingsValue(false));
+              db.updateModuleSettings(moduleSettings.get()).thenAccept(v -> {
+                discordService.createMessageInChannel(guildId, channelId, "<@" + userId.asString() + "> Logging type " + args[1].toLowerCase() +  " successfully disabled!").subscribe();
+                callback.success();
+              });
+
+            } else {
+              discordService.createMessageInChannel(guildId, channelId, "<@" + userId.asString() + "> Unknown subcommand!").subscribe();
+            }
+          } else if(args[0].equalsIgnoreCase("set")) {
+            if(args[1].equalsIgnoreCase("channel")) {
+
+              if(!availableLoggingTypes.contains(args[2].toLowerCase())) {
+                discordService.createMessageInChannel(guildId, channelId, "<@" + userId.asString() + "> Invalid logging type!").subscribe();
+                return;
+              }
+
+              if(!args[3].startsWith("<#") || !args[3].endsWith(">")) {
+                discordService.createMessageInChannel(guildId, channelId, "<@" + userId.asString() + "> Please provide a channel as the 4th argument!").subscribe();
+                return;
+              }
+
+              long newChannelId;
+              try {
+                newChannelId = Long.parseLong(args[3].substring(2, args[3].length() - 1));
+              } catch (NumberFormatException e){
+                discordService.createMessageInChannel(guildId, channelId, "<@" + userId.asString() + "> Please provide a channel as the 4th argument!").subscribe();
+                return;
+              }
+
+              moduleSettings.get().getOptions().get("log_" + args[2].toLowerCase()).getNested().orElse(new HashMap<>()).put("channel", new ModuleSettingsValue(newChannelId));
+
+              db.updateModuleSettings(moduleSettings.get()).thenAccept(v -> {
+                discordService.createMessageInChannel(guildId, channelId, "<@" + userId.asString() + "> Channel for " + args[2].toLowerCase() + " successfully updated!").subscribe();
+                callback.success();
+              });
+
+            } else if(args[1].equalsIgnoreCase("format")) {
+
+              if(!availableLoggingTypes.contains(args[2].toLowerCase())) {
+                discordService.createMessageInChannel(guildId, channelId, "<@" + userId.asString() + "> Invalid logging type!").subscribe();
+                return;
+              }
+
+              String newFormat = String.join(" ", Arrays.copyOfRange(args, 3, args.length - 3));
+
+              moduleSettings.get().getOptions().get("log_" + args[2].toLowerCase()).getNested().orElse(new HashMap<>()).put("format", new ModuleSettingsValue(newFormat));
+
+              db.updateModuleSettings(moduleSettings.get()).thenAccept(v -> {
+                discordService.createMessageInChannel(guildId, channelId, "<@" + userId.asString() + "> Format for " + args[2].toLowerCase() + " successfully updated!").subscribe();
+                callback.success();
+              });
+
+            } else {
+              discordService.createMessageInChannel(guildId, channelId, "<@" + userId.asString() + "> Unknown subcommand!").subscribe();
+            }
+          } else {
+            discordService.createMessageInChannel(guildId, channelId, "<@" + userId.asString() + "> Unknown subcommand!").subscribe();
+          }
+
+        });
+
+      });
+
+
+    });
   }
 
 
