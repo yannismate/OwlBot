@@ -101,9 +101,8 @@ public class DatabaseService {
       Document filter = new Document();
       filter.append("guild_id", moduleSettings.getGuildId().asLong());
       filter.append("module_name", moduleSettings.getModuleName());
-      db.getCollection("guild_settings")
-          .updateOne(filter, new Document("$set", moduleSettings.toDocument()),
-              new UpdateOptions().upsert(true));
+      db.getCollection("module_settings")
+          .replaceOne(filter, moduleSettings.toDocument());
     }, executor);
   }
 
