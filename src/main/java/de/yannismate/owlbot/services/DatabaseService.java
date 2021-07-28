@@ -130,17 +130,16 @@ public class DatabaseService {
     }, executor);
   }
 
-  public CompletableFuture<Void> insertMemberJoin(CachedUserJoin cachedUserJoin) {
+  public CompletableFuture<Void> insertOrUpdateMemberJoin(CachedUserJoin cachedUserJoin) {
     return CompletableFuture.runAsync(() -> {
-      db.getCollection("member_join_temp").insertOne(cachedUserJoin.toDocument());
+      db.getCollection("member_join_temp").updateOne(
+          new Document("user_id", cachedUserJoin.getUserId().asLong()),
+          new Document("$set", cachedUserJoin.toDocument()),
+          new UpdateOptions().upsert(true)
+      );
     }, executor);
   }
-  public CompletableFuture<Void> updateMemberJoin(CachedUserJoin cachedUserJoin) {
-    return CompletableFuture.runAsync(() -> {
-      Document filter = new Document("user_id", cachedUserJoin.getUserId().asLong());
-      db.getCollection("member_join_temp").replaceOne(filter, cachedUserJoin.toDocument());
-    }, executor);
-  }
+
   public CompletableFuture<List<CachedUserJoin>> getMemberJoinsWithFilter(Document filter) {
     return CompletableFuture.supplyAsync(() -> {
       MongoCursor<Document> docs = db.getCollection("member_join_temp").find(filter).iterator();
