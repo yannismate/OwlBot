@@ -39,4 +39,14 @@ public class InitialSetup {
     db.getCollection("msg_temp").createIndex(Indexes.ascending("created_at"), options);
   }
 
+  @ChangeSet(order = "004", id = "init-temp-member-joins-collection", author = "Yannis Matezki")
+  public void initTempMemberJoinsCollection(MongoDatabase db) {
+    db.createCollection("member_join_temp");
+    db.getCollection("member_join_temp").createIndex(Indexes.ascending("user_id"), UNIQUE_INDEX);
+    IndexOptions options = new IndexOptions();
+    options.unique(true);
+    options.expireAfter(1L, TimeUnit.DAYS);
+    db.getCollection("member_join_temp").createIndex(Indexes.ascending("joined_at"), options);
+  }
+
 }

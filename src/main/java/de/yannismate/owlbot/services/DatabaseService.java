@@ -8,12 +8,16 @@ import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
+import com.mongodb.client.MongoCursor;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.UpdateOptions;
 import de.yannismate.owlbot.model.db.CachedMessage;
+import de.yannismate.owlbot.model.db.CachedUserJoin;
 import de.yannismate.owlbot.model.db.GuildSettings;
 import de.yannismate.owlbot.model.db.ModuleSettings;
 import discord4j.common.util.Snowflake;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -123,6 +127,28 @@ public class DatabaseService {
       Document msgDoc = db.getCollection("msg_temp").find(filter).first();
       if(msgDoc == null) return Optional.empty();
       return Optional.of(new CachedMessage().read(msgDoc));
+    }, executor);
+  }
+
+  public CompletableFuture<Void> insertMemberJoin(CachedUserJoin cachedUserJoin) {
+    return CompletableFuture.runAsync(() -> {
+      db.getCollection("member_join_temp").insertOne(cachedUserJoin.toDocument());
+    }, executor);
+  }
+  public CompletableFuture<Void> updateMemberJoin(CachedUserJoin cachedUserJoin) {
+    return CompletableFuture.runAsync(() -> {
+      Document filter = new Document("user_id", cachedUserJoin.getUserId().asLong());
+      db.getCollection("member_join_temp").replaceOne(filter, cachedUserJoin.toDocument());
+    }, executor);
+  }
+  public CompletableFuture<List<CachedUserJoin>> getMemberJoinsWithFilter(Document filter) {
+    return CompletableFuture.supplyAsync(() -> {
+      MongoCursor<Document> docs = db.getCollection("member_join_temp").find(filter).iterator();
+      List<CachedUserJoin> list = new ArrayList<>();
+      while(docs.hasNext()) {
+        list.add(new CachedUserJoin().read(docs.next()));
+      }
+      return list;
     }, executor);
   }
 
