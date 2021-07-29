@@ -7,6 +7,7 @@ import de.yannismate.owlbot.model.ModuleCommand;
 import de.yannismate.owlbot.model.events.CommandExecutionEvent;
 import de.yannismate.owlbot.modules.LoggingModule;
 import de.yannismate.owlbot.modules.ModuleManagerModule;
+import de.yannismate.owlbot.modules.NukeModule;
 import discord4j.core.event.domain.message.MessageCreateEvent;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -29,7 +30,8 @@ public class ModuleService {
   private final Map<Class<? extends Module>, Module> modules = new HashMap<>();
   private final Set<Class<? extends Module>> availableModules = Set.of(
       LoggingModule.class,
-      ModuleManagerModule.class
+      ModuleManagerModule.class,
+      NukeModule.class
   );
   private final Map<String, ModuleCommandData> registeredCommands = new HashMap<>();
 
