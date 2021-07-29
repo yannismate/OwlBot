@@ -637,7 +637,7 @@ public class LoggingModule extends Module {
                 return;
               }
 
-              String newFormat = String.join(" ", Arrays.copyOfRange(args, 3, args.length - 3));
+              String newFormat = String.join(" ", Arrays.copyOfRange(args, 3, args.length));
 
               moduleSettings.get().getOptions().get("log_" + args[2].toLowerCase()).getNested().orElse(new HashMap<>()).put("format", new ModuleSettingsValue(newFormat));
 
