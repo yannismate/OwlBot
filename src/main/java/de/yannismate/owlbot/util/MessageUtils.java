@@ -11,24 +11,61 @@ public class MessageUtils {
   }
 
   public static String escapeForMultiLineCodeBlock(String content) {
-    return content.replace("`", "\u200E`");
+    return content.replace("`", "\u200E`\u200E");
   }
 
   public static String replaceTokens(String input, Map<String, String> tokens) {
-    Pattern patter = Pattern.compile("\\$\\{(.+?)}");
-    Matcher matcher = patter.matcher(input);
-    StringBuilder buffer = new StringBuilder();
 
-    while(matcher.find()) {
-      if(!tokens.containsKey(matcher.group(1))) continue;
+    StringBuilder stringBuilder = new StringBuilder();
 
-      String replacement = tokens.get(matcher.group(1));
-      matcher.appendReplacement(buffer, "");
-      buffer.append(replacement);
+    char c1 = ' ';
+    char c2 = ' ';
+
+    boolean isSingleCodeBlock = false;
+    boolean isMultiCodeBlock = false;
+
+    boolean tokenOpened = false;
+    String currentToken = "";
+
+    for(int i = 0; i < input.length(); i++) {
+      char currentChar = input.charAt(i);
+      if(tokenOpened) {
+        if(currentChar == '}') {
+          tokenOpened = false;
+          if(tokens.containsKey(currentToken)) {
+            if(isMultiCodeBlock) stringBuilder.append(escapeForMultiLineCodeBlock(tokens.get(currentToken)));
+            else if(isSingleCodeBlock) stringBuilder.append(escapeForSingleLineCodeBlock(tokens.get(currentToken)));
+            else stringBuilder.append(tokens.get(currentToken));
+          }
+          else stringBuilder.append("${").append(currentToken).append("}");
+          currentToken = "";
+        } else {
+          currentToken += currentChar;
+        }
+      } else {
+        if(currentChar == '{' && c1 == '$') {
+          tokenOpened = true;
+        } else {
+          if(c1 == '$') stringBuilder.append('$');
+          if(currentChar != '$') stringBuilder.append(currentChar);
+          if(currentChar == '`') {
+
+            if(c1 == '`' && c2 == '`') {
+              isMultiCodeBlock = !isMultiCodeBlock;
+            } else if(!isMultiCodeBlock) {
+              isSingleCodeBlock = !isSingleCodeBlock;
+            }
+
+          }
+        }
+      }
+
+      c2 = c1;
+      c1 = currentChar;
     }
-    matcher.appendTail(buffer);
 
-    return buffer.toString();
+    return stringBuilder.toString();
+
   }
 
 
