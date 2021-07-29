@@ -137,13 +137,14 @@ public class ModuleManagerModule extends Module {
             }
 
             //Check if module needs dependencies
-            Stream<String> unresolvedDependencies = Arrays.stream(findModule.get().getDependencies())
-                .filter(clazz -> guildSettings.get().getEnabledModules().contains(clazz.getSimpleName()))
-                .map(clazz -> moduleService.getModuleByClass(clazz).getName());
+            String unresolvedDependencies = Arrays.stream(findModule.get().getDependencies())
+                .filter(clazz -> !guildSettings.get().getEnabledModules().contains(clazz.getSimpleName()))
+                .map(clazz -> moduleService.getModuleByClass(clazz).getName())
+                .collect(Collectors.joining(", "));
 
-            if(unresolvedDependencies.findAny().isPresent()) {
+            if(unresolvedDependencies.length() > 0) {
               discordService.createMessageInChannel(guildId, channelId, "<@" + userId.asString() + "> " + findModule.get().getName() + " depends on one or more disabled Modules: `"
-                  + unresolvedDependencies.collect(Collectors.joining(", ")) + "`!").subscribe();
+                  + unresolvedDependencies + "`!").subscribe();
               return;
             }
 
@@ -177,14 +178,15 @@ public class ModuleManagerModule extends Module {
             }
 
             //Check if deactivating the Module would break dependencies
-            Stream<String> unresolvedDependencies = guildSettings.get().getEnabledModules().stream()
+            String unresolvedDependencies = guildSettings.get().getEnabledModules().stream()
                 .map(s -> moduleService.getModuleByClassName(s).orElseThrow())
                 .filter(module -> Arrays.stream(module.getDependencies()).anyMatch(c -> (c == findModule.get().getClass())))
-                .map(Module::getName);
+                .map(Module::getName)
+                .collect(Collectors.joining(", "));
 
-            if(unresolvedDependencies.findAny().isPresent()) {
+            if(unresolvedDependencies.length() > 0) {
               discordService.createMessageInChannel(guildId, channelId, "<@" + userId.asString() + "> " + findModule.get().getName() + " is required by one or more enabled Modules: `"
-                  + unresolvedDependencies.collect(Collectors.joining(", ")) + "`!").subscribe();
+                  + unresolvedDependencies + "`!").subscribe();
               return;
             }
 
