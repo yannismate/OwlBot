@@ -15,6 +15,7 @@ import de.yannismate.owlbot.model.db.CachedMessage;
 import de.yannismate.owlbot.model.db.CachedUserJoin;
 import de.yannismate.owlbot.model.db.GuildSettings;
 import de.yannismate.owlbot.model.db.ModuleSettings;
+import de.yannismate.owlbot.model.db.Nuke;
 import discord4j.common.util.Snowflake;
 import java.util.ArrayList;
 import java.util.List;
@@ -148,6 +149,14 @@ public class DatabaseService {
         list.add(new CachedUserJoin().read(docs.next()));
       }
       return list;
+    }, executor);
+  }
+
+  public CompletableFuture<String> insertNuke(Nuke nuke) {
+    return CompletableFuture.supplyAsync(() -> {
+      Document doc = nuke.toDocument();
+      db.getCollection("nukes").insertOne(doc);
+      return doc.getObjectId("_id").toHexString();
     }, executor);
   }
 

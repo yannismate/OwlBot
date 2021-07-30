@@ -7,6 +7,7 @@ import org.bson.Document;
 
 public class CachedUserJoin implements DatabaseObject {
 
+  private Snowflake guildId;
   private Snowflake userId;
   private Date joinedAt;
   private String name;
@@ -15,8 +16,9 @@ public class CachedUserJoin implements DatabaseObject {
 
   public CachedUserJoin(){}
 
-  public CachedUserJoin(Snowflake userId, Date joinedAt, String name, long accountCreationTime,
-      String profilePictureHash) {
+  public CachedUserJoin(Snowflake guildId, Snowflake userId, Date joinedAt, String name,
+      long accountCreationTime, String profilePictureHash) {
+    this.guildId = guildId;
     this.userId = userId;
     this.joinedAt = joinedAt;
     this.name = name;
@@ -26,12 +28,17 @@ public class CachedUserJoin implements DatabaseObject {
 
   @Override
   public CachedUserJoin read(Document document) {
+    this.guildId = Snowflake.of(document.getLong("guild_id"));
     this.userId = Snowflake.of(document.getLong("user_id"));
     this.joinedAt = document.getDate("joined_at");
     this.name = document.getString("name");
     this.accountCreationTime = document.getLong("account_creation_time");
     this.profilePictureHash = document.getString("profile_picture_hash");
     return this;
+  }
+
+  public Snowflake getGuildId() {
+    return guildId;
   }
 
   public Snowflake getUserId() {
@@ -69,7 +76,8 @@ public class CachedUserJoin implements DatabaseObject {
   @Override
   public Document toDocument() {
     Document doc = new Document();
-    doc.append("user_id", userId.asLong())
+    doc.append("guild_id", guildId.asLong())
+        .append("user_id", userId.asLong())
         .append("joined_at", joinedAt)
         .append("name", name)
         .append("account_creation_time", accountCreationTime)

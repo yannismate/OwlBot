@@ -42,11 +42,16 @@ public class InitialSetup {
   @ChangeSet(order = "004", id = "init-temp-member-joins-collection", author = "Yannis Matezki")
   public void initTempMemberJoinsCollection(MongoDatabase db) {
     db.createCollection("member_join_temp");
-    db.getCollection("member_join_temp").createIndex(Indexes.ascending("user_id"), UNIQUE_INDEX);
+    db.getCollection("member_join_temp").createIndex(Indexes.compoundIndex(Indexes.ascending("guild_id"), Indexes.ascending("user_id")), UNIQUE_INDEX);
     IndexOptions options = new IndexOptions();
     options.unique(true);
     options.expireAfter(1L, TimeUnit.DAYS);
     db.getCollection("member_join_temp").createIndex(Indexes.ascending("joined_at"), options);
+  }
+
+  @ChangeSet(order = "005", id = "init-nuke-collection", author = "Yannis Matezki")
+  public void initNukeCollection(MongoDatabase db) {
+    db.createCollection("nukes");
   }
 
 }

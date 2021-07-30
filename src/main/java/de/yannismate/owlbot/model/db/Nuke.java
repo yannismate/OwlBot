@@ -61,6 +61,62 @@ public class Nuke implements DatabaseObject {
     return this;
   }
 
+  public Snowflake getGuildId() {
+    return guildId;
+  }
+
+  public void setGuildId(Snowflake guildId) {
+    this.guildId = guildId;
+  }
+
+  public Snowflake getExecutedBy() {
+    return executedBy;
+  }
+
+  public void setExecutedBy(Snowflake executedBy) {
+    this.executedBy = executedBy;
+  }
+
+  public NukeMode getNukeMode() {
+    return nukeMode;
+  }
+
+  public void setNukeMode(NukeMode nukeMode) {
+    this.nukeMode = nukeMode;
+  }
+
+  public NukeOptions getNukeOptions() {
+    return nukeOptions;
+  }
+
+  public void setNukeOptions(NukeOptions nukeOptions) {
+    this.nukeOptions = nukeOptions;
+  }
+
+  public Date getExecutionDate() {
+    return executionDate;
+  }
+
+  public void setExecutionDate(Date executionDate) {
+    this.executionDate = executionDate;
+  }
+
+  public Date getRadiationEndDate() {
+    return radiationEndDate;
+  }
+
+  public void setRadiationEndDate(Date radiationEndDate) {
+    this.radiationEndDate = radiationEndDate;
+  }
+
+  public List<Snowflake> getAffectedUsers() {
+    return affectedUsers;
+  }
+
+  public void setAffectedUsers(List<Snowflake> affectedUsers) {
+    this.affectedUsers = affectedUsers;
+  }
+
   @Override
   public Document toDocument() {
     return new Document()
