@@ -2,6 +2,8 @@ package de.yannismate.owlbot.modules;
 
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
+import com.google.re2j.Pattern;
+import com.google.re2j.PatternSyntaxException;
 import de.yannismate.owlbot.OwlBot;
 import de.yannismate.owlbot.model.Module;
 import de.yannismate.owlbot.model.ModuleCommand;
@@ -9,6 +11,7 @@ import de.yannismate.owlbot.model.db.CachedUserJoin;
 import de.yannismate.owlbot.model.db.Nuke;
 import de.yannismate.owlbot.model.db.Nuke.NukeMode;
 import de.yannismate.owlbot.model.db.Nuke.NukeOptionsJoinTime;
+import de.yannismate.owlbot.model.db.Nuke.NukeOptionsNameRegex;
 import de.yannismate.owlbot.services.DatabaseService;
 import de.yannismate.owlbot.services.DiscordService;
 import discord4j.common.util.Snowflake;
@@ -215,6 +218,85 @@ public class NukeModule extends Module {
 
 
       } else if(args[0].equalsIgnoreCase("name_regex")) {
+        if(args.length < 3) {
+          discordService.createMessageInChannel(guildId, channelId,
+              "<@" + userId.asString() + "> Invalid amount of arguments!").subscribe();
+          return;
+        }
+
+        String regexStr = String.join(" ", Arrays.copyOfRange(args, 1, args.length - 1));
+
+        Pattern regex = null;
+        try {
+          regex = Pattern.compile(regexStr);
+        } catch (PatternSyntaxException e) {
+          discordService.createMessageInChannel(guildId, channelId,
+              "<@" + userId.asString() + "> Please provide a valid RE2 regex as the 2nd argument!").subscribe();
+          return;
+        }
+        Date from = null;
+        try {
+          int mins = Integer.parseInt(args[args.length - 1]);
+          from = new Date(System.currentTimeMillis() - ((long) mins * 60*1000));
+        } catch (NumberFormatException e) {
+          discordService.createMessageInChannel(guildId, channelId,
+              "<@" + userId.asString() + "> Please provide an integer as the 3rd argument!").subscribe();
+          return;
+        }
+
+        Document filter = new Document();
+
+        filter.append("guild_id", guildId.asLong());
+        filter.append("joined_at", new Document("$gt", from));
+
+        Pattern finalRegex = regex;
+        Date finalFrom = from;
+
+        db.getMemberJoinsWithFilter(filter).thenAccept(users -> {
+          List<Snowflake> ids = users.stream()
+              .filter(j -> finalRegex.matches(j.getName()))
+              .map(CachedUserJoin::getUserId)
+              .collect(Collectors.toList());
+
+          NukeOptionsNameRegex nukeOptions = new NukeOptionsNameRegex(finalRegex.pattern(), finalFrom);
+          Nuke nuke = new Nuke();
+          nuke.setGuildId(guildId);
+          nuke.setExecutionDate(new Date());
+          nuke.setNukeMode(NukeMode.NAME_REGEX);
+          nuke.setNukeOptions(nukeOptions);
+          nuke.setExecutedBy(userId);
+          nuke.setAffectedUsers(ids);
+
+          db.insertNuke(nuke).thenAccept(nukeId -> {
+            event.getGuild().subscribe(guild -> {
+
+              Mono<Void> doBans = ids.stream()
+                  .map(u -> guild.ban(u, ban -> {
+                    ban.setDeleteMessageDays(7);
+                    ban.setReason("Nuke " + nukeId);
+                  }))
+                  .reduce(Mono::when)
+                  .orElse(Mono.empty());
+
+              doBans.doOnSuccess(v ->
+                  event.getMessage().getChannel().flatMap(channel ->
+                      channel.createEmbed(embed -> {
+                        embed.setTitle("Completed Nuke");
+                        embed.setFooter("OwlBot v" + OwlBot.VERSION, null);
+                        embed.setTimestamp(Instant.now());
+                        embed.addField("ID", nukeId, false);
+                        embed.addField("Affected Users", ids.size() + "", false);
+                        embed.addField("Executed by", "<@" + event.getMember().get().getId().asString() + ">", false);
+                        embed.setColor(ids.size() > 0 ? OwlBot.COLOR_POSITIVE : OwlBot.COLOR_NEGATIVE);
+                      })
+                  ).subscribe()
+              ).subscribe();
+
+
+            });
+          });
+
+        });
 
       } else if(args[0].equalsIgnoreCase("account_creation_time")) {
 
