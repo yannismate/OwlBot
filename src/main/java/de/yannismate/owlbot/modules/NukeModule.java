@@ -10,6 +10,8 @@ import de.yannismate.owlbot.model.ModuleCommand;
 import de.yannismate.owlbot.model.db.CachedUserJoin;
 import de.yannismate.owlbot.model.db.Nuke;
 import de.yannismate.owlbot.model.db.Nuke.NukeMode;
+import de.yannismate.owlbot.model.db.Nuke.NukeOptions;
+import de.yannismate.owlbot.model.db.Nuke.NukeOptionsAccountCreationTime;
 import de.yannismate.owlbot.model.db.Nuke.NukeOptionsJoinTime;
 import de.yannismate.owlbot.model.db.Nuke.NukeOptionsNameRegex;
 import de.yannismate.owlbot.services.DatabaseService;
@@ -249,16 +251,15 @@ public class NukeModule extends Module {
         filter.append("guild_id", guildId.asLong());
         filter.append("joined_at", new Document("$gt", from));
 
-        Pattern finalRegex = regex;
-        Date finalFrom = from;
+        NukeOptionsNameRegex nukeOptions = new NukeOptionsNameRegex(regex.pattern(), from);
 
+        Pattern finalRegex = regex;
         db.getMemberJoinsWithFilter(filter).thenAccept(users -> {
           List<Snowflake> ids = users.stream()
               .filter(j -> finalRegex.matches(j.getName()))
               .map(CachedUserJoin::getUserId)
               .collect(Collectors.toList());
 
-          NukeOptionsNameRegex nukeOptions = new NukeOptionsNameRegex(finalRegex.pattern(), finalFrom);
           Nuke nuke = new Nuke();
           nuke.setGuildId(guildId);
           nuke.setExecutionDate(new Date());
@@ -267,7 +268,7 @@ public class NukeModule extends Module {
           nuke.setExecutedBy(userId);
           nuke.setAffectedUsers(ids);
 
-          db.insertNuke(nuke).thenAccept(nukeId -> {
+          db.insertNuke(nuke).thenAccept(nukeId ->
             event.getGuild().subscribe(guild -> {
 
               Mono<Void> doBans = ids.stream()
@@ -293,12 +294,101 @@ public class NukeModule extends Module {
               ).subscribe();
 
 
-            });
-          });
+            })
+          );
 
         });
 
       } else if(args[0].equalsIgnoreCase("account_creation_time")) {
+
+        if(args.length != 4) {
+          discordService.createMessageInChannel(guildId, channelId,
+              "<@" + userId.asString() + "> Invalid amount of arguments!").subscribe();
+          return;
+        }
+
+        Date act = null;
+        int radiusMinutes = 0;
+        Date from = null;
+
+        try {
+          long longAct = Long.parseLong(args[1]);
+          act = new Date(Snowflake.of(longAct).getTimestamp().toEpochMilli());
+        } catch (NumberFormatException e) {
+          try {
+            Instant instantFrom = Instant.parse(args[1]);
+            act = Date.from(instantFrom);
+          } catch (DateTimeParseException e2) {
+            discordService.createMessageInChannel(guildId, channelId,
+                "<@" + userId.asString() + "> Please provide a valid user ID or ISO 8601 timestamp as the 2nd argument!").subscribe();
+            return;
+          }
+        }
+
+        try {
+          radiusMinutes = Integer.parseInt(args[2]);
+        } catch (NumberFormatException e) {
+          discordService.createMessageInChannel(guildId, channelId,
+              "<@" + userId.asString() + "> Please provide an integer as the 2nd argument!").subscribe();
+          return;
+        }
+
+        try {
+          from = new Date(System.currentTimeMillis() - ((long) Integer.parseInt(args[3]) * 60*1000));
+        } catch (NumberFormatException e) {
+          discordService.createMessageInChannel(guildId, channelId,
+              "<@" + userId.asString() + "> Please provide an integer as the 3rd argument!").subscribe();
+          return;
+        }
+
+        Document filter = new Document();
+
+        filter.append("guild_id", guildId.asLong());
+        filter.append("joined_at", new Document("$gt", from));
+        Date minRad = new Date(act.getTime() - ((long) radiusMinutes * 60*1000));
+        Date maxRad = new Date(act.getTime() + ((long) radiusMinutes * 60*1000));
+        filter.append("account_creation_time", new Document().append("$gt", minRad).append("$lt", maxRad));
+
+        NukeOptionsAccountCreationTime nukeOptions = new NukeOptionsAccountCreationTime(act, radiusMinutes, from);
+
+        db.getMemberJoinsWithFilter(filter).thenAccept(users -> {
+
+          Nuke nuke = new Nuke();
+          nuke.setGuildId(guildId);
+          nuke.setExecutionDate(new Date());
+          nuke.setNukeMode(NukeMode.ACCOUNT_CREATION_TIME);
+          nuke.setNukeOptions(nukeOptions);
+          nuke.setExecutedBy(userId);
+          nuke.setAffectedUsers(users.stream().map(CachedUserJoin::getUserId).collect(Collectors.toList()));
+
+          db.insertNuke(nuke).thenAccept(nukeId ->
+              event.getGuild().subscribe(guild -> {
+
+                Mono<Void> doBans = users.stream()
+                    .map(u -> guild.ban(u.getUserId(), ban -> {
+                      ban.setDeleteMessageDays(7);
+                      ban.setReason("Nuke " + nukeId);
+                    }))
+                    .reduce(Mono::when)
+                    .orElse(Mono.empty());
+
+                doBans.doOnSuccess(v ->
+                    event.getMessage().getChannel().flatMap(channel ->
+                        channel.createEmbed(embed -> {
+                          embed.setTitle("Completed Nuke");
+                          embed.setFooter("OwlBot v" + OwlBot.VERSION, null);
+                          embed.setTimestamp(Instant.now());
+                          embed.addField("ID", nukeId, false);
+                          embed.addField("Affected Users", users.size() + "", false);
+                          embed.addField("Executed by", "<@" + event.getMember().get().getId().asString() + ">", false);
+                          embed.setColor(users.size() > 0 ? OwlBot.COLOR_POSITIVE : OwlBot.COLOR_NEGATIVE);
+                        })
+                    ).subscribe()
+                ).subscribe();
+              })
+          );
+
+        });
 
       } else if(args[0].equalsIgnoreCase("profile_picture")) {
 
