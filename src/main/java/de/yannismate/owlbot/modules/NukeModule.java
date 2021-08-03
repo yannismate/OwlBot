@@ -10,15 +10,16 @@ import de.yannismate.owlbot.model.ModuleCommand;
 import de.yannismate.owlbot.model.db.CachedUserJoin;
 import de.yannismate.owlbot.model.db.Nuke;
 import de.yannismate.owlbot.model.db.Nuke.NukeMode;
-import de.yannismate.owlbot.model.db.Nuke.NukeOptions;
 import de.yannismate.owlbot.model.db.Nuke.NukeOptionsAccountCreationTime;
 import de.yannismate.owlbot.model.db.Nuke.NukeOptionsJoinTime;
 import de.yannismate.owlbot.model.db.Nuke.NukeOptionsNameRegex;
+import de.yannismate.owlbot.model.db.Nuke.NukeOptionsProfilePicture;
 import de.yannismate.owlbot.services.DatabaseService;
 import de.yannismate.owlbot.services.DiscordService;
 import discord4j.common.util.Snowflake;
 import discord4j.core.event.domain.guild.MemberJoinEvent;
 import discord4j.core.event.domain.message.MessageCreateEvent;
+import discord4j.core.object.entity.channel.MessageChannel;
 import discord4j.core.spec.EmbedCreateSpec;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
@@ -26,6 +27,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.bson.Document;
@@ -187,34 +189,7 @@ public class NukeModule extends Module {
           nuke.setExecutedBy(userId);
           nuke.setAffectedUsers(affectedUsers.stream().map(CachedUserJoin::getUserId).collect(Collectors.toList()));
 
-          db.insertNuke(nuke).thenAccept(nukeId -> {
-            event.getGuild().subscribe(guild -> {
-
-              Mono<Void> doBans = finalAffectedUsers.stream()
-                  .map(u -> guild.ban(u.getUserId(), ban -> {
-                    ban.setDeleteMessageDays(7);
-                    ban.setReason("Nuke " + nukeId);
-                  }))
-                  .reduce(Mono::when)
-                  .orElse(Mono.empty());
-
-              doBans.doOnSuccess(v ->
-                  event.getMessage().getChannel().flatMap(channel ->
-                      channel.createEmbed(embed -> {
-                        embed.setTitle("Completed Nuke");
-                        embed.setFooter("OwlBot v" + OwlBot.VERSION, null);
-                        embed.setTimestamp(Instant.now());
-                        embed.addField("ID", nukeId, false);
-                        embed.addField("Affected Users", finalAffectedUsers.size() + "", false);
-                        embed.addField("Executed by", "<@" + event.getMember().get().getId().asString() + ">", false);
-                        embed.setColor(finalAffectedUsers.size() > 0 ? OwlBot.COLOR_POSITIVE : OwlBot.COLOR_NEGATIVE);
-                      })
-                  ).subscribe()
-              ).subscribe();
-
-
-            });
-          });
+          this.executeNuke(nuke, event.getMessage().getChannel());
 
         });
 
@@ -268,34 +243,7 @@ public class NukeModule extends Module {
           nuke.setExecutedBy(userId);
           nuke.setAffectedUsers(ids);
 
-          db.insertNuke(nuke).thenAccept(nukeId ->
-            event.getGuild().subscribe(guild -> {
-
-              Mono<Void> doBans = ids.stream()
-                  .map(u -> guild.ban(u, ban -> {
-                    ban.setDeleteMessageDays(7);
-                    ban.setReason("Nuke " + nukeId);
-                  }))
-                  .reduce(Mono::when)
-                  .orElse(Mono.empty());
-
-              doBans.doOnSuccess(v ->
-                  event.getMessage().getChannel().flatMap(channel ->
-                      channel.createEmbed(embed -> {
-                        embed.setTitle("Completed Nuke");
-                        embed.setFooter("OwlBot v" + OwlBot.VERSION, null);
-                        embed.setTimestamp(Instant.now());
-                        embed.addField("ID", nukeId, false);
-                        embed.addField("Affected Users", ids.size() + "", false);
-                        embed.addField("Executed by", "<@" + event.getMember().get().getId().asString() + ">", false);
-                        embed.setColor(ids.size() > 0 ? OwlBot.COLOR_POSITIVE : OwlBot.COLOR_NEGATIVE);
-                      })
-                  ).subscribe()
-              ).subscribe();
-
-
-            })
-          );
+          this.executeNuke(nuke, event.getMessage().getChannel());
 
         });
 
@@ -361,41 +309,106 @@ public class NukeModule extends Module {
           nuke.setExecutedBy(userId);
           nuke.setAffectedUsers(users.stream().map(CachedUserJoin::getUserId).collect(Collectors.toList()));
 
-          db.insertNuke(nuke).thenAccept(nukeId ->
-              event.getGuild().subscribe(guild -> {
-
-                Mono<Void> doBans = users.stream()
-                    .map(u -> guild.ban(u.getUserId(), ban -> {
-                      ban.setDeleteMessageDays(7);
-                      ban.setReason("Nuke " + nukeId);
-                    }))
-                    .reduce(Mono::when)
-                    .orElse(Mono.empty());
-
-                doBans.doOnSuccess(v ->
-                    event.getMessage().getChannel().flatMap(channel ->
-                        channel.createEmbed(embed -> {
-                          embed.setTitle("Completed Nuke");
-                          embed.setFooter("OwlBot v" + OwlBot.VERSION, null);
-                          embed.setTimestamp(Instant.now());
-                          embed.addField("ID", nukeId, false);
-                          embed.addField("Affected Users", users.size() + "", false);
-                          embed.addField("Executed by", "<@" + event.getMember().get().getId().asString() + ">", false);
-                          embed.setColor(users.size() > 0 ? OwlBot.COLOR_POSITIVE : OwlBot.COLOR_NEGATIVE);
-                        })
-                    ).subscribe()
-                ).subscribe();
-              })
-          );
+          this.executeNuke(nuke, event.getMessage().getChannel());
 
         });
 
       } else if(args[0].equalsIgnoreCase("profile_picture")) {
 
+        String[] finalArgs = args;
+
+        parseAvatarHash(args[1]).subscribe(hash -> {
+          if(hash.isEmpty()) {
+            discordService.createMessageInChannel(guildId, channelId,
+                "<@" + userId.asString() + "> Please provide a valid user ID or image hash as the first argument!").subscribe();
+            return;
+          }
+
+          Date from = null;
+          try {
+            from = new Date(System.currentTimeMillis() - ((long) Integer.parseInt(finalArgs[2]) * 60*1000));
+          } catch (NumberFormatException e) {
+            discordService.createMessageInChannel(guildId, channelId,
+                "<@" + userId.asString() + "> Please provide an integer as the 2nd argument!").subscribe();
+            return;
+          }
+
+          Document filter = new Document();
+          filter.append("guild_id", guildId.asLong());
+          filter.append("profile_picture_hash", hash.get());
+
+          NukeOptionsProfilePicture nukeOptions = new NukeOptionsProfilePicture(hash.get(), from);
+
+          db.getMemberJoinsWithFilter(filter).thenAccept(users -> {
+
+            Nuke nuke = new Nuke();
+            nuke.setGuildId(guildId);
+            nuke.setExecutionDate(new Date());
+            nuke.setNukeMode(NukeMode.PROFILE_PICTURE);
+            nuke.setNukeOptions(nukeOptions);
+            nuke.setExecutedBy(userId);
+            nuke.setAffectedUsers(users.stream().map(CachedUserJoin::getUserId).collect(Collectors.toList()));
+
+            this.executeNuke(nuke, event.getMessage().getChannel());
+
+
+          });
+
+        });
       }
 
 
     });
+  }
+
+  private Optional<String> emptyStringOpt() {
+    return Optional.empty();
+  }
+  private Mono<Optional<String>> parseAvatarHash(String arg) {
+    try {
+      long id = Long.parseLong(arg);
+      return discordService.getGateway().getUserById(Snowflake.of(id)).map(u -> {
+        String avatarUrl = u.getAvatarUrl();
+        avatarUrl = avatarUrl.substring(avatarUrl.lastIndexOf("/") + 1);
+        avatarUrl = avatarUrl.split("\\.")[0];
+        if(avatarUrl.length() > 5) {
+          return Optional.of(avatarUrl);
+        }
+        return emptyStringOpt();
+      }).onErrorReturn(emptyStringOpt());
+    } catch (NumberFormatException e) {
+      return Mono.just(Optional.of(arg));
+    }
+
+  }
+
+  private void executeNuke(Nuke nuke, Mono<MessageChannel> responseChannel) {
+    db.insertNuke(nuke).thenAccept(nukeId ->
+        discordService.getGateway().getGuildById(nuke.getGuildId()).subscribe(guild -> {
+
+          Mono<Void> doBans = nuke.getAffectedUsers().stream()
+              .map(u -> guild.ban(u, ban -> {
+                ban.setDeleteMessageDays(7);
+                ban.setReason("Nuke " + nukeId);
+              }))
+              .reduce(Mono::when)
+              .orElse(Mono.empty());
+
+          doBans.doOnSuccess(v ->
+              responseChannel.flatMap(channel ->
+                  channel.createEmbed(embed -> {
+                    embed.setTitle("Completed Nuke");
+                    embed.setFooter("OwlBot v" + OwlBot.VERSION, null);
+                    embed.setTimestamp(Instant.now());
+                    embed.addField("ID", nukeId, false);
+                    embed.addField("Affected Users", nuke.getAffectedUsers().size() + "", false);
+                    embed.addField("Executed by", "<@" + nuke.getExecutedBy().asString() + ">", false);
+                    embed.setColor(nuke.getAffectedUsers().size() > 0 ? OwlBot.COLOR_POSITIVE : OwlBot.COLOR_NEGATIVE);
+                  })
+              ).subscribe()
+          ).subscribe();
+        })
+    );
   }
 
 
