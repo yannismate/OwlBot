@@ -355,8 +355,17 @@ public class NukeModule extends Module {
           });
 
         });
-      }
+      } else if(args[0].equalsIgnoreCase("info")) {
 
+        if(args.length != 2) {
+          discordService.createMessageInChannel(guildId, channelId,
+              "<@" + userId.asString() + "> Invalid amount of arguments!").subscribe();
+          return;
+        }
+
+        //TODO
+
+      }
 
     });
   }
