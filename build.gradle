@@ -22,6 +22,7 @@ dependencies {
     implementation 'com.discord4j:discord4j-core:3.1.5'
     implementation 'org.mongodb:mongodb-driver:3.12.8'
     implementation 'com.google.re2j:re2j:1.6'
+    implementation 'com.googlecode.json-simple:json-simple:1.1.1'
 
     implementation 'org.slf4j:slf4j-api:2.0.0-alpha1'
     implementation 'org.apache.logging.log4j:log4j-slf4j18-impl:2.14.1'
