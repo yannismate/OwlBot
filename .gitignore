@@ -2,3 +2,4 @@
 .idea
 build
 settings.properties
+twitch_auth.json

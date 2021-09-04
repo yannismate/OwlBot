@@ -10,6 +10,7 @@ import de.yannismate.owlbot.services.DatabaseService;
 import de.yannismate.owlbot.services.DiscordService;
 import de.yannismate.owlbot.services.ModuleService;
 import de.yannismate.owlbot.services.TwitchAuthenticationService;
+import de.yannismate.owlbot.services.WebhooksService;
 import discord4j.rest.util.Color;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,6 +31,7 @@ public class OwlBot {
         bind(DatabaseService.class).asEagerSingleton();
         bind(BotEventService.class).asEagerSingleton();
         bind(TwitchAuthenticationService.class).asEagerSingleton();
+        bind(WebhooksService.class).asEagerSingleton();
       }
     });
     OwlBot owlBot = new OwlBot(injector);

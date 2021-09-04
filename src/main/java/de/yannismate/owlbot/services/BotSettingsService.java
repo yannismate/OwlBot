@@ -16,6 +16,8 @@ public class BotSettingsService {
   private final int webhooksPort;
   private final String twitchClientId;
   private final String twitchClientSecret;
+  private final String twitchWebhookSecret;
+  private final String webhooksUrl;
 
   public BotSettingsService() throws IOException {
     logger.atInfo().log("Loading bot settings");
@@ -27,6 +29,8 @@ public class BotSettingsService {
     this.webhooksPort = Integer.parseInt(properties.getProperty("WEBHOOKS_PORT"));
     this.twitchClientId = properties.getProperty("TWITCH_CLIENT_ID");
     this.twitchClientSecret = properties.getProperty("TWITCH_CLIENT_SECRET");
+    this.twitchWebhookSecret = properties.getProperty("TWITCH_WEBHOOK_SECRET");
+    this.webhooksUrl = properties.getProperty("WEBHOOKS_URL");
   }
 
   public String getDiscordToken() {
@@ -43,5 +47,13 @@ public class BotSettingsService {
 
   public String getTwitchClientSecret() {
     return twitchClientSecret;
+  }
+
+  public String getTwitchWebhookSecret() {
+    return twitchWebhookSecret;
+  }
+
+  public String getWebhooksUrl() {
+    return webhooksUrl;
   }
 }
